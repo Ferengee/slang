@@ -3,12 +3,14 @@
    * export isLambda etc and lookup
    */
   var all_symbols = {};
+  var numbers = {};
 
 var lambda = intern("lambda");
 var lambda2 = intern("\\");
 var quote = intern("quote");
 var cond = intern("cond");
 var els = intern("else");
+var define = intern("define");
 
 var nil = intern("nil");
 var tee = intern("t");
@@ -24,7 +26,7 @@ function LSymbol(name){
   this.name = name;
 }
 LSymbol.prototype.toString = function(){
-  return this.name.toUpperCase();
+  return this.name;
 }
 
 function LCons(car, cdr){
@@ -78,7 +80,7 @@ function getVars(proc){
 
 
 LProc.prototype.toString = function(){
-  return "(lambda "+ this.args+ " " + this.code + ")";
+  return "(lambda "+ this.args+ " " + car(this.code) + ")";
 }
 
 function isNil(v){
@@ -139,6 +141,15 @@ function makeProc(args, code, env){
   return new LProc(args, code, env)
 }
 
+function makeNumber(v){ 
+  var existing = numbers[v];
+  if(existing === undefined){
+    existing = new LNumber(v);
+    numbers[v] = existing;
+  }
+  return existing;
+}
+
 
 function read(string){
   
@@ -152,7 +163,7 @@ function read(string){
     
     if(token == "(") { return readList(); }
     if(token == "'") { return cons(quote, cons(readObject(), nil)); }
-    if(token.match(/^[0123456789]/)) { return new LNumber(parseFloat(token))}
+    if(token.match(/^[0123456789]/)) { return makeNumber(parseFloat(token))}
     return intern(token);
   }
   
@@ -229,6 +240,10 @@ function isQuote(exp){
   return car(exp) == quote;
 }
 
+function isDefine(exp) {
+ return car(exp) == define; 
+}
+
 function isCond(exp) {
   return car(exp) == cond;
 }
@@ -282,6 +297,7 @@ function eval(exp, env){
   if (isNumeric( exp)) { return exp; }
   if (isSymbol( exp )) { return lookup(exp, env); }
   if (isQuote(exp)) { return car(cdr(exp)); }
+  if (isDefine(exp)) { return extendTopEnv(car(cdr(exp)), eval(car(cdr(cdr(exp))),env));}
   /*
    * (lambda (x) (+ x 2))
    */
@@ -391,8 +407,8 @@ function pairUp(vars, vals){
 */
 
 function lookup(symbol, env){
-  console.log("lookup():", symbol.toString());
-  printEnv(env);
+  //console.log("lookup():", symbol.toString());
+  //printEnv(env);
   
   if(isNil(env)){
     throw new Error("empty environnement at last frame while looking for: "+symbol);
@@ -440,30 +456,47 @@ function assq(symbol, alist){
 
 test_string = "(((lambda(x) (lambda (y) (+ y x) )) 3 ) (cdr '(5 . 4)) ))";
 topenv = cons(cons(nil,nil), nil);
-topenv = cons(cons(intern("*"), new LPrimop(function(x, y){
-  return new LNumber(x.value * y.value);
-})), topenv);
-topenv = cons(cons(intern("+"), new LPrimop(function(x, y){
-  return new LNumber(x.value + y.value);
-})), topenv);
 
-topenv = cons(cons(intern("-"), new LPrimop(function(x, y){
-  return new LNumber(x.value - y.value);
-})), topenv);
+extendTopEnv(tee, tee);
 
-topenv = cons(cons(intern("/"), new LPrimop(function(x, y){
-  return new LNumber(x.value / y.value);
-})), topenv);
+extendTopEnv(intern("*"), new LPrimop(function(x, y){
+  return makeNumber(x.value * y.value);
+}));
+extendTopEnv(intern("+"), new LPrimop(function(x, y){
+  return makeNumber(x.value + y.value);
+}));
 
-topenv = cons(cons(intern("eq?"), new LPrimop(function(x, y){
+extendTopEnv(intern("-"), new LPrimop(function(x, y){
+  return makeNumber(x.value - y.value);
+}));
+
+extendTopEnv(intern("/"), new LPrimop(function(x, y){
+  return makeNumber(x.value / y.value);
+}));
+
+extendTopEnv(intern("<"), new LPrimop(function(x, y){
+  return (x.value < y.value) ? tee : nil;
+}));
+
+extendTopEnv(intern(">"), new LPrimop(function(x, y){
+  return (x.value > y.value) ? tee : nil;
+}));
+
+extendTopEnv(intern("eq?"), new LPrimop(function(x, y){
   return (x == y)? tee : nil;
-})), topenv);
+}));
+
+extendTopEnv(intern("car"), new LPrimop(car));
+extendTopEnv(intern("cdr"), new LPrimop(cdr));
+extendTopEnv(intern("first"), new LPrimop(car));
+extendTopEnv(intern("rest"), new LPrimop(cdr));
 
 
-topenv = cons(cons(intern("car"), new LPrimop(car)), topenv);
-topenv = cons(cons(intern("cdr"), new LPrimop(cdr)), topenv);
-topenv = cons(cons(intern("first"), new LPrimop(car)), topenv);
-topenv = cons(cons(intern("rest"), new LPrimop(cdr)), topenv);
+function extendTopEnv(symbol, object){
+  var tail = topenv.cdr;
+  topenv.cdr = cons(cons(symbol, object), tail);
+  return symbol;
+}
 
 
 var env = cons(topenv, nil);
