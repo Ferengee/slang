@@ -372,7 +372,7 @@ function pairUp(vars, vals){
   }else if(isNil(vals)){
     throw new Error("To few arguments ");
   } else {
-    return cons(cons(car(vars), car(vals), pairUp(cdr(vars), cdr(vals))));
+    return cons(cons(car(vars), car(vals)), pairUp(cdr(vars), cdr(vals)));
   }
 }
 
@@ -391,8 +391,8 @@ function pairUp(vars, vals){
 */
 
 function lookup(symbol, env){
-  //console.log("lookup():", symbol.toString());
-  //printEnv(env);
+  console.log("lookup():", symbol.toString());
+  printEnv(env);
   
   if(isNil(env)){
     throw new Error("empty environnement at last frame while looking for: "+symbol);
