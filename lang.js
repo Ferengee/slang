@@ -1,3 +1,4 @@
+IgnoreCase = true;
   /*
    * TODO: wrap symbol and rootenv in a closure
    * export isLambda etc and lookup
@@ -18,13 +19,12 @@ var tee = intern("t");
 /* READER */
 tokenize = function(string){
   return string.replace(/([\(\)'])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
-
 };
-
 
 function LSymbol(name){
   this.name = name;
 }
+
 LSymbol.prototype.toString = function(){
   return this.name;
 }
@@ -136,8 +136,15 @@ function cdr(cell){
   return undefinedToNil(cell.cdr);
 }
 
-function makeProc(args, code, env){
-  // console.log("make proc", args, code, env);
+function makeProc(exp, env){
+  var args = car(exp);
+  var code = cdr(exp);
+ /*
+  * console.log("|make proc:");
+  console.log("|     args:", args);
+  console.log("|     code:", code);
+  console.log("|     env:", env);
+  */
   return new LProc(args, code, env)
 }
 
@@ -172,8 +179,12 @@ function read(string){
     
     if(token == ")") { return nil; }
     if(token == ".") {
-      // todo syntax checking ... expecting ) after object etc
-      return readObject(); 
+      var r = readObject(); 
+      var token = getToken();
+      if(token != ")"){
+        throw new Error("Invalid list after . notation");
+      }
+      return r;
     }
     return cons(readObject(token), readList());
     
@@ -268,6 +279,9 @@ function printEnv(env){
 }
 
 function intern(token){
+  if(IgnoreCase){
+    token = token.toLowerCase();
+  }
   var result = all_symbols[token];
   if(result === undefined){
     result = new LSymbol(token);
@@ -301,7 +315,7 @@ function eval(exp, env){
   /*
    * (lambda (x) (+ x 2))
    */
-  if (isLambda(exp)) { return makeProc(car(cdr(exp)), cdr(cdr(exp)), env); }
+  if (isLambda(exp)) { return makeProc((cdr(exp)), env); }
   if (isCond(exp)) { return evalCond(cdr(exp), env); }
   if (isNil(car(exp))){
     console.log("--- is nil car exp ---");
@@ -379,12 +393,15 @@ function evalCond(clauses, env){
 */
 
 function pairUp(vars, vals){
+ //console.log("| pair up:", vars);
   if(isNil(vars)){
     if(isNil(vals)){
       return nil;
     } else {
       throw new Error("To many arguments");
     }
+  }else if(isSymbol(vars)){
+    return cons(cons(vars, vals), nil);
   }else if(isNil(vals)){
     throw new Error("To few arguments ");
   } else {
@@ -456,6 +473,14 @@ function assq(symbol, alist){
 
 test_string = "(((lambda(x) (lambda (y) (+ y x) )) 3 ) (cdr '(5 . 4)) ))";
 topenv = cons(cons(nil,nil), nil);
+function extendTopEnv(symbol, object){
+  var tail = topenv.cdr;
+  topenv.cdr = cons(cons(symbol, object), tail);
+  return symbol;
+}
+
+
+var env = cons(topenv, nil);
 
 extendTopEnv(tee, tee);
 
@@ -490,16 +515,15 @@ extendTopEnv(intern("car"), new LPrimop(car));
 extendTopEnv(intern("cdr"), new LPrimop(cdr));
 extendTopEnv(intern("first"), new LPrimop(car));
 extendTopEnv(intern("rest"), new LPrimop(cdr));
+extendTopEnv(intern("cons"), new LPrimop(cons));
+extendTopEnv(intern("apply"), new LPrimop(function(proc, args){
+  proc = eval(proc, env);
+  return apply(proc, args);
+}));
 
 
-function extendTopEnv(symbol, object){
-  var tail = topenv.cdr;
-  topenv.cdr = cons(cons(symbol, object), tail);
-  return symbol;
-}
 
 
-var env = cons(topenv, nil);
 
 
 /*
@@ -530,6 +554,28 @@ console.log("--- eval(read('(* 4 4)'), env) ---");
 console.log("=>","" + eval(read("(* 4 4)"), env));
 console.log("");
 
+
+
+    var extensions = [
+      "(define ! (lambda (n) (cond ((< n 2) n) (t (* n (! (- n 1)))))))",
+      "(define ^ (lambda (x n) (cond (( < n 1) 1) (t (* x (^ x (- n 1 ))))) ))",
+      //"(define map (lambda (list, fn) (cond ((eq? list '()) '()) (t (cons (fn (car list)) (map (cdr list) fn) ))) ))",
+      "(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) ",
+      "(define test (lambda (x . y)  y )) ",
+      "(define list (lambda x x))",
+      "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
+      "(define +1 (lambda (x) (+ x 1) ) )"
+    ];
+    
+    
+    for(var i = 0; i < extensions.length ; i++){
+      try{
+      eval(read(extensions[i]), env);
+      } catch (e){
+        console.log("failed to parse", extensions[i]);
+      }
+    }
+    
 
 /*
 test_lambda_applied = "((lambda (x) (* x x)) 4)";
