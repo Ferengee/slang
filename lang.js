@@ -9,16 +9,21 @@ IgnoreCase = true;
 var lambda = intern("lambda");
 var lambda2 = intern("\\");
 var quote = intern("quote");
+var quasiquote = intern("quasiquote");
+var unquote = intern("unquote");
+
 var cond = intern("cond");
 var els = intern("else");
 var define = intern("define");
 
 var nil = intern("nil");
 var tee = intern("t");
+var and = intern("and");
+var or = intern("or");
 
 /* READER */
 tokenize = function(string){
-  return string.replace(/([\(\)'])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
+  return string.replace(/([\(\)'\n`,])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
 };
 
 function LSymbol(name){
@@ -94,6 +99,10 @@ function undefinedToNil(v){
   return v;
 }
 
+function isList(v){
+  return (v instanceof LCons || isNil(v));
+}
+
 function isNumeric(v){
   return v instanceof LNumber;
 }
@@ -108,6 +117,13 @@ function isPrimitive(proc){
 
 function isClosure(proc){
   return proc instanceof LProc;
+}
+
+function isAnd(v){
+  return car(v) == and; 
+}
+function isOr(v){
+  return car(v) == or; 
 }
 
 function cons(x, y){
@@ -167,9 +183,15 @@ function read(string){
   }
   function readObject(token){
     token = token || getToken();
-    
+    if(token === undefined){
+      var error =  new Error("Incomplete read");
+      error.retry = true;
+      throw error;
+    }
     if(token == "(") { return readList(); }
     if(token == "'") { return cons(quote, cons(readObject(), nil)); }
+    if(token == "`") { return cons(quasiquote, cons(readObject(), nil)); }
+    if(token == ",") { return cons(unquote, cons(readObject(), nil)); }
     if(token.match(/^[0123456789]/)) { return makeNumber(parseFloat(token))}
     return intern(token);
   }
@@ -251,6 +273,15 @@ function isQuote(exp){
   return car(exp) == quote;
 }
 
+function isQuasiQuote(exp){
+  return car(exp) == quasiquote;
+}
+
+function isUnQuote(exp){
+  return car(exp) == unquote;
+}
+
+
 function isDefine(exp) {
  return car(exp) == define; 
 }
@@ -306,17 +337,25 @@ function intern(token){
 */
   
 function eval(exp, env){
-  // console.log("eval", exp.toString());
+  //console.log("eval", exp.toString());
   //printEnv(env);
   if (isNumeric( exp)) { return exp; }
   if (isSymbol( exp )) { return lookup(exp, env); }
   if (isQuote(exp)) { return car(cdr(exp)); }
-  if (isDefine(exp)) { return extendTopEnv(car(cdr(exp)), eval(car(cdr(cdr(exp))),env));}
+  if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
+  if (isDefine(exp)) { return extendEnv(car(cdr(exp)), eval(car(cdr(cdr(exp))),env), env);}
   /*
    * (lambda (x) (+ x 2))
    */
   if (isLambda(exp)) { return makeProc((cdr(exp)), env); }
   if (isCond(exp)) { return evalCond(cdr(exp), env); }
+  /* 
+   * and or
+   *  
+   */
+  if (isAnd(exp)) { return evalAnd(cdr(exp), env); }
+  if (isOr(exp)) { return evalOr(cdr(exp), env); }
+  
   if (isNil(car(exp))){
     console.log("--- is nil car exp ---");
   }
@@ -326,7 +365,23 @@ function eval(exp, env){
   /* (<symbol> <arg1> ... ) */
   return apply(eval(car(exp), env), evalList(cdr(exp), env )); 
 
-}      
+}    
+
+function evalQuasiQuote(exp, env){
+  if(isNil(exp)){
+    return nil;
+  } else if(isList(exp)){
+    var item = car(exp);
+    if(isUnQuote(car(exp))){
+      item = eval(car(cdr(car(exp))), env);
+    } else if (isList(item)){
+      item = evalQuasiQuote(item, env);
+    }
+    return cons(item, evalQuasiQuote(cdr(exp), env));
+  }else{
+    return exp; 
+  }
+}
       
     /*  
 (define evlist
@@ -361,12 +416,36 @@ isFalse = isNil
     
 function evalCond(clauses, env){
   if(clauses == nil){
-    return nil;lelse
+    return nil;
   } else if(car(car(clauses)) == els ||  !isFalse(eval(car(car(clauses)), env))){
      return eval(car(cdr(car(clauses))), env);
   } else {
     return evalCond(cdr(clauses), env);
   }
+}
+
+function evalAnd(predicates, env){
+  var result = tee;
+  while(!isNil(predicates)){
+    result = eval(car(predicates), env);
+    if(isNil(result)){
+      return nil;
+    }
+    predicates = cdr(predicates);
+  }
+  return result;
+}
+
+function evalOr(predicates, env){
+  var result = nil;
+  while(!isNil(predicates)){
+    var result = eval(car(predicates), env); 
+    if(!isNil(result)){
+      return result;
+    }
+    predicates = cdr(predicates);
+  } 
+  return result;
 }
   /*
 (define bind
@@ -473,31 +552,53 @@ function assq(symbol, alist){
 
 test_string = "(((lambda(x) (lambda (y) (+ y x) )) 3 ) (cdr '(5 . 4)) ))";
 topenv = cons(cons(nil,nil), nil);
+var env = cons(topenv, nil);
+
 function extendTopEnv(symbol, object){
-  var tail = topenv.cdr;
-  topenv.cdr = cons(cons(symbol, object), tail);
+  extendEnv(symbol, object, env);
+}
+
+function extendEnv(symbol, object, env) {
+  var tail = car(env).cdr;
+  car(env).cdr = cons(cons(symbol, object), tail);
   return symbol;
 }
 
 
-var env = cons(topenv, nil);
 
 extendTopEnv(tee, tee);
 
-extendTopEnv(intern("*"), new LPrimop(function(x, y){
-  return makeNumber(x.value * y.value);
-}));
-extendTopEnv(intern("+"), new LPrimop(function(x, y){
-  return makeNumber(x.value + y.value);
-}));
+function createPrimaryNumberOp (binaryFn){
+  return function(){
+    var result = arguments[0].value;
+    for(var x = 1; x < arguments.length ; x++){
+      result = binaryFn(result, arguments[x].value);
+    }
+      
+    return makeNumber(result);
+  }
+}
 
-extendTopEnv(intern("-"), new LPrimop(function(x, y){
-  return makeNumber(x.value - y.value);
-}));
+function registerPrimaryNumberOp(token, binaryFn){
+  extendTopEnv(intern(token), new LPrimop(createPrimaryNumberOp(binaryFn)));
+}
 
-extendTopEnv(intern("/"), new LPrimop(function(x, y){
-  return makeNumber(x.value / y.value);
-}));
+registerPrimaryNumberOp("*", function(x, y) {
+  return x * y;
+});
+
+
+registerPrimaryNumberOp("+", function(x, y){
+  return x + y;
+});
+
+registerPrimaryNumberOp("-", function(x, y){
+  return x - y;
+});
+
+registerPrimaryNumberOp("/", function(x, y){
+  return x / y;
+});
 
 extendTopEnv(intern("<"), new LPrimop(function(x, y){
   return (x.value < y.value) ? tee : nil;
@@ -511,15 +612,19 @@ extendTopEnv(intern("eq?"), new LPrimop(function(x, y){
   return (x == y)? tee : nil;
 }));
 
+extendTopEnv(intern("nil?"), new LPrimop(function(v){
+  return isNil(v) ? tee : nil;
+  
+}));
+
+
 extendTopEnv(intern("car"), new LPrimop(car));
 extendTopEnv(intern("cdr"), new LPrimop(cdr));
 extendTopEnv(intern("first"), new LPrimop(car));
 extendTopEnv(intern("rest"), new LPrimop(cdr));
 extendTopEnv(intern("cons"), new LPrimop(cons));
-extendTopEnv(intern("apply"), new LPrimop(function(proc, args){
-  proc = eval(proc, env);
-  return apply(proc, args);
-}));
+extendTopEnv(intern("apply"), new LPrimop(apply));
+extendTopEnv(intern("display"), new LPrimop(function(exp){console.log(exp.toString());}));
 
 
 
@@ -559,12 +664,18 @@ console.log("");
     var extensions = [
       "(define ! (lambda (n) (cond ((< n 2) n) (t (* n (! (- n 1)))))))",
       "(define ^ (lambda (x n) (cond (( < n 1) 1) (t (* x (^ x (- n 1 ))))) ))",
+      "(define last (lambda (x)( cond (( nil? (cdr x)) (car x))( t (last (cdr x))))))",
+      "(define concat (lambda (x)( cond ((nil? x) nil) ((nil? (car x)) (concat (cdr x)))( t (cons (car (car x)) (concat (cons(cdr(car x)) (cdr x))))))))",
+      "(define append (lambda x (concat x)))",
       //"(define map (lambda (list, fn) (cond ((eq? list '()) '()) (t (cons (fn (car list)) (map (cdr list) fn) ))) ))",
       "(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) ",
       "(define test (lambda (x . y)  y )) ",
       "(define list (lambda x x))",
       "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
-      "(define +1 (lambda (x) (+ x 1) ) )"
+      "(define +1 (lambda (x) (+ x 1) ) )",
+      
+      "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
+      "(define fact-gen (lambda (fact) (lambda (n) (cond ((eq? n 0) 1)( t (* n (fact (- n 1))))))))"
     ];
     
     
@@ -591,12 +702,21 @@ var rl = readline.createInterface({
 });
 rl.setPrompt('> ');
     rl.prompt();
-
+var inputbuffer = "";
   rl.on('line',  function(answer){
     try{
-    console.log("=>","" + eval(read(answer), env));
+      var input = inputbuffer + '\n' +answer; 
+      console.log("=>","" + eval(read(input), env));
+      inputbuffer = "";  
+      
     } catch(e){
-      console.log(e);
+      if(e.retry){
+        inputbuffer = input;
+        //console.log(inputbuffer);
+      } else {
+        console.log(e);
+      }
     }
-    rl.prompt();
+      rl.prompt();
+    
   });
