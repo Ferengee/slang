@@ -20,6 +20,7 @@ var nil = intern("nil");
 var tee = intern("t");
 var and = intern("and");
 var or = intern("or");
+var dumpEnv = intern("env");
 
 /* READER */
 tokenize = function(string){
@@ -78,6 +79,10 @@ function getCode(proc){
 function getEnv(proc){
   // console.log("getEnv", proc.env);
   return proc.env;
+}
+
+function setEnv(proc, env){
+  proc.env = env;
 }
 function getVars(proc){
   return proc.args;
@@ -255,8 +260,9 @@ function apply(proc, args){
     var code = getCode(proc);
     var result = nil;
     while(!isNil(code)){
-    
-      result = eval( car(code), bind(getVars(proc), args, getEnv(proc)));
+      var env = bind(getVars(proc), args, getEnv(proc));
+      result = eval( car(code), env);
+      setEnv(proc, env);
       code = cdr(code);
     }
     return result;
@@ -344,6 +350,7 @@ function eval(exp, env){
   if (isQuote(exp)) { return car(cdr(exp)); }
   if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
   if (isDefine(exp)) { return extendEnv(car(cdr(exp)), eval(car(cdr(cdr(exp))),env), env);}
+  if (car(exp) == dumpEnv) { return env; }
   /*
    * (lambda (x) (+ x 2))
    */
@@ -552,15 +559,23 @@ function assq(symbol, alist){
 
 test_string = "(((lambda(x) (lambda (y) (+ y x) )) 3 ) (cdr '(5 . 4)) ))";
 topenv = cons(cons(nil,nil), nil);
-var env = cons(topenv, nil);
+
+var env = nil;
+env = cons(topenv, env);
+//topenv = cons(cons(nil,nil), nil);
+//env = cons(topenv, env);
 
 function extendTopEnv(symbol, object){
   extendEnv(symbol, object, env);
 }
 
 function extendEnv(symbol, object, env) {
-  var tail = car(env).cdr;
-  car(env).cdr = cons(cons(symbol, object), tail);
+  //console.log("-- extending: " + symbol);
+  var frame = car((env));
+  var tail = frame.cdr;
+  frame.cdr = cons(cons(symbol, object), tail);
+  // printFrame(frame);
+  //console.log("--------------");
   return symbol;
 }
 
@@ -625,6 +640,7 @@ extendTopEnv(intern("rest"), new LPrimop(cdr));
 extendTopEnv(intern("cons"), new LPrimop(cons));
 extendTopEnv(intern("apply"), new LPrimop(apply));
 extendTopEnv(intern("display"), new LPrimop(function(exp){console.log(exp.toString());}));
+extendTopEnv(intern("printenv"), new LPrimop(printEnv));
 
 
 
