@@ -157,9 +157,9 @@ function cdr(cell){
   return undefinedToNil(cell.cdr);
 }
 
-function makeProc(exp, env){
-  var args = car(exp);
-  var code = cdr(exp);
+function makeProc(args, code, env){
+ // var args = car(exp);
+ // var code = cdr(exp);
  /*
   * console.log("|make proc:");
   console.log("|     args:", args);
@@ -349,12 +349,17 @@ function eval(exp, env){
   if (isSymbol( exp )) { return lookup(exp, env); }
   if (isQuote(exp)) { return car(cdr(exp)); }
   if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
-  if (isDefine(exp)) { return extendEnv(car(cdr(exp)), eval(car(cdr(cdr(exp))),env), env);}
+  if (isDefine(exp)) { return evalDefine(exp, env);}
   if (car(exp) == dumpEnv) { return env; }
   /*
    * (lambda (x) (+ x 2))
    */
-  if (isLambda(exp)) { return makeProc((cdr(exp)), env); }
+  if (isLambda(exp)) { 
+    var args = car(cdr(exp));
+    var code = cdr(cdr(exp));
+    return makeProc(args, code, env); 
+    
+  }
   if (isCond(exp)) { return evalCond(cdr(exp), env); }
   /* 
    * and or
@@ -373,6 +378,21 @@ function eval(exp, env){
   return apply(eval(car(exp), env), evalList(cdr(exp), env )); 
 
 }    
+
+function evalDefine(exp, env){
+  var variable = car(cdr(exp));
+  var value;
+  if(isList(variable)){
+    console.log("--- creating a lambda ---");
+    var args = cdr(variable);
+    var code = cdr(cdr(exp));
+    variable = car(variable);
+    value =  makeProc(args, code, env);
+  } else {
+    value = eval(car(cdr(cdr(exp))),env);
+  }
+  return extendEnv(variable, value, env);
+}
 
 function evalQuasiQuote(exp, env){
   if(isNil(exp)){
@@ -720,17 +740,19 @@ rl.setPrompt('> ');
     rl.prompt();
 var inputbuffer = "";
   rl.on('line',  function(answer){
-    try{
-      var input = inputbuffer + '\n' +answer; 
-      console.log("=>","" + eval(read(input), env));
-      inputbuffer = "";  
-      
-    } catch(e){
-      if(e.retry){
-        inputbuffer = input;
-        //console.log(inputbuffer);
-      } else {
-        console.log(e);
+    if(answer.indexOf(";") != 0){
+      try{
+        var input = inputbuffer + '\n' +answer; 
+        console.log("=>","" + eval(read(input), env));
+        inputbuffer = "";  
+        
+      } catch(e){
+        if(e.retry){
+          inputbuffer = input;
+          //console.log(inputbuffer);
+        } else {
+          console.log(e);
+        }
       }
     }
       rl.prompt();
