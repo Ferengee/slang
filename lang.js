@@ -269,10 +269,11 @@ function apply(proc, args){
   } else if ( isClosure(proc) ){
     var code = getCode(proc);
     var result = nil;
+    var env = bind(getVars(proc), args, getEnv(proc));
+
     while(!isNil(code)){
-      var env = bind(getVars(proc), args, getEnv(proc));
       result = eval( car(code), env);
-      setEnv(proc, env);
+      //setEnv(proc, env);
       code = cdr(code);
     }
     return result;
@@ -435,7 +436,7 @@ function evalList(list, env){
   if(list == nil){ 
     return nil;
   } else {
-    return cons(eval(car(list), env), evalList(cdr(list), env)); 
+    return cons(eval(car(list), env), evalList(cdr(list), env));
   }
 }
 /*
