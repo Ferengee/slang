@@ -352,43 +352,91 @@ function intern(token){
         ( apply ( eval (car exp) env)
           ( evlist (cdr exp) env ))))))
 */
-  
+
+    /*
+     * While (!done){
+     *   var env, args; // env is resolved, or as rootenv, or from evaluating a proc
+     *   // for self evaluating: Numeric nil t, primitiveOperator, Proc
+     *   // for one level lookup: Symbol, (Quote ... )
+     *   // for creating a procedure: (Lambda ... )
+     *   // for creating an assignment: (Define ...), (Set ...)
+     *    
+     *   if (is<Type> (expression)) { return dispatch<Type>(expression) }
+     * 
+     *   // for evaluating apply: (<any> ... ) <any> ! E (Lambda, Define, Set, Cond)
+     *   // for evaluating conditionals: (Cond ... )
+     * 
+     *   if (is<Type> (expression)) {
+     *     
+     *   }
+     * }
+     * 
+     */
 function eval(exp, env){
   //console.log("eval", exp.toString());
   //printEnv(env);
-  if (isNumeric( exp)) { return exp; }
-  if (isSymbol( exp )) { return lookup(exp, env); }
-  if (isQuote(exp)) { return car(cdr(exp)); }
-  if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
-  if (isDefine(exp)) { return evalDefine(exp, env);}
-  if (car(exp) == dumpEnv) { return env; }
-  /*
-   * (lambda (x) (+ x 2))
-   */
-  if (isLambda(exp)) { 
-    var args = car(cdr(exp));
-    var code = cdr(cdr(exp));
-    return makeProc(args, code, env); 
-    
-  }
-  if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
-  if (isCond(exp)) { return evalCond(cdr(exp), env); }
-  /* 
-   * and or
-   *  
-   */
-  if (isAnd(exp)) { return evalAnd(cdr(exp), env); }
-  if (isOr(exp)) { return evalOr(cdr(exp), env); }
+  while(true){
   
-  if (isNil(car(exp))){
-    console.log("--- is nil car exp ---");
-  }
-  /*if(isNil(eval(car(exp), exp))){
-    console.log("nil for:" + exp + ":"+env);
-  }*/
-  /* (<symbol> <arg1> ... ) */
-  return apply(eval(car(exp), env), evalList(cdr(exp), env )); 
+    if (isNumeric( exp)) { return exp; }
+    if (isSymbol( exp )) { return lookup(exp, env); }
+    if (isQuote(exp)) { return car(cdr(exp)); }
+    if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
+    if (isDefine(exp)) { return evalDefine(exp, env);}
+    if (car(exp) == dumpEnv) { return env; }
 
+    if (isLambda(exp)) { 
+      var args = car(cdr(exp));
+      var code = cdr(cdr(exp));
+      return makeProc(args, code, env); 
+      
+    }
+    if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
+    /*
+    * Cond 'becomes' the value it evaluates to
+    * Stack is not needed
+    * 
+    * evalCond could be rewritten as resolveCond
+    * and return just the expression that is to be evaluated
+    * 
+    */
+    if (isCond(exp)) { 
+      exp = resolveCond(cdr(exp), env); 
+    }  
+    else if (isAnd(exp)) { 
+      return evalAnd(cdr(exp), env); 
+    }
+    else if (isOr(exp)) { 
+      return evalOr(cdr(exp), env); 
+    }
+    else {
+      /* (<symbol> <arg1> ... ) */
+      var proc = eval(car(exp), env);
+      var args = evalList(cdr(exp), env); 
+      if(isPrimitive(proc)){
+        return applyPrimop(proc, args);
+      } else if ( isClosure(proc) ){
+        var code = getCode(proc);
+        env = bind(getVars(proc), args, getEnv(proc));
+
+        while(!isNil(code)){
+          
+          /* 
+          * only the statements before the last statement should be recursively evaluated 
+          * The last statement should become an expression which can be evaluated
+          * in the next iteration
+          */
+          if(isNil(cdr(code))){
+            exp = car(code);
+          }else {
+            eval( car(code), env);
+          }
+          code = cdr(code);
+        }
+      } else {
+        throw new Error("invalid proc: " + JSON.stringify(proc) + ":" + args);
+      }
+    }
+  }
 }    
 
 function evalDefine(exp, env){
@@ -453,15 +501,16 @@ function evalList(list, env){
 */
 isFalse = isNil
     
-function evalCond(clauses, env){
+function resolveCond(clauses, env){
   if(clauses == nil){
     return nil;
   } else if(car(car(clauses)) == els ||  !isFalse(eval(car(car(clauses)), env))){
-     return eval(car(cdr(car(clauses))), env);
+     return car(cdr(car(clauses)));
   } else {
-    return evalCond(cdr(clauses), env);
+    return resolveCond(cdr(clauses), env);
   }
 }
+
 
 function evalAnd(predicates, env){
   var result = tee;
