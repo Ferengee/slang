@@ -1,3 +1,9 @@
+/*
+ * For garbage collector test
+ * All in rootenv must be preserved and the env from which the gc started
+ * processing stops when gc runs 
+ * test different scenarios, for example run after every function call
+ */
 IgnoreCase = true;
   /*
    * TODO: wrap symbol and rootenv in a closure
@@ -21,6 +27,7 @@ var tee = intern("t");
 var and = intern("and");
 var or = intern("or");
 var dumpEnv = intern("env");
+var evl = intern("eval");
 
 /* READER */
 tokenize = function(string){
@@ -129,6 +136,9 @@ function isAnd(v){
 }
 function isOr(v){
   return car(v) == or; 
+}
+function isEval(v){
+  return car(v) == evl;
 }
 
 function cons(x, y){
@@ -360,6 +370,7 @@ function eval(exp, env){
     return makeProc(args, code, env); 
     
   }
+  if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
   if (isCond(exp)) { return evalCond(cdr(exp), env); }
   /* 
    * and or
@@ -504,12 +515,12 @@ function pairUp(vars, vals){
     if(isNil(vals)){
       return nil;
     } else {
-      throw new Error("To many arguments");
+      throw new Error("To many arguments (vars: " + vars + " ) (vals: " + vals + ")");
     }
   }else if(isSymbol(vars)){
     return cons(cons(vars, vals), nil);
   }else if(isNil(vals)){
-    throw new Error("To few arguments ");
+    throw new Error("To few arguments (vars: " + vars + " ) (vals: " + vals + ")");
   } else {
     return cons(cons(car(vars), car(vals)), pairUp(cdr(vars), cdr(vals)));
   }
@@ -659,6 +670,8 @@ extendTopEnv(intern("first"), new LPrimop(car));
 extendTopEnv(intern("rest"), new LPrimop(cdr));
 extendTopEnv(intern("cons"), new LPrimop(cons));
 extendTopEnv(intern("apply"), new LPrimop(apply));
+extendTopEnv(intern("eval"), new LPrimop(apply));
+
 extendTopEnv(intern("display"), new LPrimop(function(exp){console.log(exp.toString());}));
 extendTopEnv(intern("printenv"), new LPrimop(printEnv));
 
