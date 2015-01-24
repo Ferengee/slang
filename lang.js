@@ -273,7 +273,6 @@ function apply(proc, args){
 
     while(!isNil(code)){
       result = eval( car(code), env);
-      //setEnv(proc, env);
       code = cdr(code);
     }
     return result;
@@ -510,7 +509,6 @@ function resolveCond(clauses, env){
     return resolveCond(cdr(clauses), env);
   }
 }
-
 
 function evalAnd(predicates, env){
   var result = tee;
@@ -772,7 +770,7 @@ console.log("");
       "(define list (lambda x x))",
       "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
       "(define +1 (lambda (x) (+ x 1) ) )",
-      
+      "(define !i (lambda (x)(define iter (lambda (n m) (cond((eq? n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))",
       "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
       "(define fact-gen (lambda (fact) (lambda (n) (cond ((eq? n 0) 1)( t (* n (fact (- n 1))))))))"
     ];
