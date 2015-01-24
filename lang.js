@@ -32,8 +32,6 @@ var evl = intern("eval");
 var partialFrame = intern("partial");
 var completeFrame = intern("complete");
 
-
-
 /* READER */
 tokenize = function(string){
   return string.replace(/([\(\)'\n`,])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
@@ -71,12 +69,121 @@ function LNumber(value){
   this.value = value;
 }
 
-LNumber.prototype.toString = function(){
+LNumber.prototype.compare = function(other){
+  return this.getValue() - other.getValue();
+}
+
+LNumber.prototype.getValue = function(){
   return this.value;
 }
 
+LNumber.prototype.toRational = function(){
+  return new LRational(Math.floor(this.value), 1);
+}
+
+function constructMath(name, fn){
+
+  LNumber.prototype[name] = function(other){
+    if(this instanceof LFloat || other instanceof LFloat){
+      return new LFloat(fn(this.getValue(),other.getValue()));
+    }else if(other instanceof LRational || ((!(this instanceof LFloat)) && (!(other instanceof LFloat)))){
+      return this.toRational()[name](other);
+    } else {
+      return new LNumber(fn(this.getValue(),other.getValue()));
+    }
+  }
+}
+
+constructMath("add", function(a,b){ return a + b});
+constructMath("substract", function(a,b){ return a - b});
+constructMath("multiply", function(a,b){ return a * b});
+constructMath("devide", function(a,b){ return a / b});
+
+LNumber.prototype.toString = function(){
+  return ""+this.value;
+}
+
+function LRational(num, denom){
+  var div = function gcd(a, b){
+    if (b == 0){
+      return a;
+    } else {
+      return gcd(b, a % b);
+    }
+  }(num, denom);
+  
+  this.num = num / div;
+  this.denom = denom / div;
+}
+
+LRational.prototype = new LNumber();
+
+LRational.prototype.toString = function(){
+  if(this.denom == 1){
+    return ""+this.num;
+  } else {
+    return ""+this.num+"/"+this.denom; 
+  }
+}
+
+LRational.prototype.getValue = function(){
+  return this.num / this.denom;
+}
+LRational.prototype.toRational = function(){
+  return this;
+}
+LRational.prototype.toFloat = function(){
+  return  new LFloat(this.getValue());
+}
+
+
+function constructRationalMath(name, numFn, denomFn){
+  LRational.prototype[name] = function(other){
+    if(other instanceof LFloat)
+    {
+      return this.toFloat()[name](other.getValue());
+    } else {
+      other = other.toRational();
+      
+      return new LRational(numFn(this, other), denomFn(this,other));
+    }
+  }
+}
+
+var denomMultiplied = function(self, other){return (self.denom * other.denom);};
+
+constructRationalMath("add", 
+   function(self, other){return (self.num * other.denom) + (self.denom * other.num);},
+   denomMultiplied);
+
+constructRationalMath("substract", 
+   function(self, other){return (self.num * other.denom) - (self.denom * other.num);},
+   denomMultiplied);
+
+constructRationalMath("multiply", 
+   function(self, other){return (self.num * other.num);},
+   denomMultiplied);
+
+constructRationalMath("devide", 
+   function(self, other){return (self.num * other.denom);},
+   function(self, other){return (self.denom * other.num);});
+
+function LFloat(value){
+  this.value = value;
+  if(this.value == Math.floor(this.value)){
+    
+    return new LNumber(this.value);
+  }
+}
+LFloat.prototype = new LNumber();
+
 function LPrimop(fn){
+  this.representation = "operator";
   this.fn = fn; 
+}
+
+LPrimop.prototype.toString = function(){
+  return ";primitive "+this.representation;
 }
 
 function LProc(args, code, env){
@@ -184,10 +291,17 @@ function makeProc(args, code, env){
   return new LProc(args, code, env)
 }
 
-function makeNumber(v){ 
+function makeNumber(type, x, y){
+  var v = "" + x + "/" + y;   
   var existing = numbers[v];
   if(existing === undefined){
-    existing = new LNumber(v);
+    if(type == "float"){
+      existing = new LFloat( x);
+    } else if (type == "rational") {
+      existing = new LRational( x, y);
+    } else {
+      existing = new LNumber(x);
+    }
     numbers[v] = existing;
   }
   return existing;
@@ -201,6 +315,7 @@ function read(string){
   function getToken(){
     return tokens.shift();
   }
+ 
   function readObject(token){
     token = token || getToken();
     if(token === undefined){
@@ -212,8 +327,20 @@ function read(string){
     if(token == "'") { return cons(quote, cons(readObject(), nil)); }
     if(token == "`") { return cons(quasiquote, cons(readObject(), nil)); }
     if(token == ",") { return cons(unquote, cons(readObject(), nil)); }
-    if(token.match(/^[0123456789]/)) { return makeNumber(parseFloat(token))}
+    if(token.match(/^[-+]?[0123456789]/)) { return readNumber(token)}
     return intern(token);
+  }
+  
+  function readNumber(token){
+    if(token.indexOf(".") > -1){
+      return makeNumber("float", parseFloat(token));
+    }else if(token.indexOf("/") > -1){
+      var parts = token.split("/");
+      return makeNumber("rational", parseInt(parts[0]), parseInt(parts[1]));
+    }else {
+      return makeNumber("int", parseInt(token));
+    }
+    
   }
   
   function readList(){
@@ -301,7 +428,6 @@ function isQuasiQuote(exp){
 function isUnQuote(exp){
   return car(exp) == unquote;
 }
-
 
 function isDefine(exp) {
  return car(exp) == define; 
@@ -692,46 +818,55 @@ function extendEnv(symbol, object, env) {
 
 
 extendTopEnv(tee, tee);
+extendTopEnv(lambda, lambda);
+
 
 function createPrimaryNumberOp (binaryFn){
   return function(){
-    var result = arguments[0].value;
+    var result = arguments[0];
     for(var x = 1; x < arguments.length ; x++){
-      result = binaryFn(result, arguments[x].value);
+      result = binaryFn(result, arguments[x]);
     }
-      
-    return makeNumber(result);
+    return result;
   }
 }
 
 function registerPrimaryNumberOp(token, binaryFn){
-  extendTopEnv(intern(token), new LPrimop(createPrimaryNumberOp(binaryFn)));
+  var primop = new LPrimop(createPrimaryNumberOp(binaryFn));
+  primop.representation = token;
+  extendTopEnv(intern(token), primop);
 }
 
 registerPrimaryNumberOp("*", function(x, y) {
-  return x * y;
+  return x.multiply(y);
 });
 
 
 registerPrimaryNumberOp("+", function(x, y){
-  return x + y;
+  return x.add(y);
 });
 
 registerPrimaryNumberOp("-", function(x, y){
-  return x - y;
+  return x.substract(y);
 });
 
 registerPrimaryNumberOp("/", function(x, y){
-  return x / y;
+  return x.devide(y);
 });
 
 extendTopEnv(intern("<"), new LPrimop(function(x, y){
-  return (x.value < y.value) ? tee : nil;
+  return (x.compare(y) < 0 ) ? tee : nil;
 }));
 
 extendTopEnv(intern(">"), new LPrimop(function(x, y){
-  return (x.value > y.value) ? tee : nil;
+  return (x.compare(y) > 0 ) ? tee : nil;
 }));
+
+
+extendTopEnv(intern("="), new LPrimop(function(x, y){
+  return (x.compare(y) == 0 ) ? tee : nil;
+}));
+
 
 extendTopEnv(intern("eq?"), new LPrimop(function(x, y){
   return (x == y)? tee : nil;
@@ -754,11 +889,37 @@ extendTopEnv(intern("eval"), new LPrimop(apply));
 extendTopEnv(intern("display"), new LPrimop(function(exp){console.log(exp.toString());}));
 extendTopEnv(intern("printenv"), new LPrimop(printEnv));
 
+function createRationalAccessor(name, constructor){
+  extendTopEnv(intern(name), new LPrimop(function(rat){
+    if(rat instanceof LRational){
+      return constructor(rat);
+    }else{
+      return nil;
+    }
+  }));
+}
 
+createRationalAccessor("rat->int", function(rat){
+  return new LNumber(rat.num);
+});
 
+createRationalAccessor("rat->float",function(rat){
+  return new LFloat(rat.getValue());
+});
 
+createRationalAccessor("rat->num", function(rat){
+  return new LNumber(rat.num);
+});
 
+createRationalAccessor("rat->denom", function(rat){
+  return new LNumber(rat.denom);
+});
 
+createRationalAccessor("rat->simplify", function(rat){
+  var whole = new LNumber(Math.floor(rat.getValue()));
+  var rest = rat.substract(whole);
+  return cons(read("+"), cons(whole, cons(rest, nil)));
+});
 /*
 console.log("" + read(test_string));
 console.log(JSON.stringify(read(test_string), null, 2));
