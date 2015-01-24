@@ -29,6 +29,11 @@ var or = intern("or");
 var dumpEnv = intern("env");
 var evl = intern("eval");
 
+var partialFrame = intern("partial");
+var completeFrame = intern("complete");
+
+
+
 /* READER */
 tokenize = function(string){
   return string.replace(/([\(\)'\n`,])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
@@ -414,8 +419,28 @@ function eval(exp, env){
       if(isPrimitive(proc)){
         return applyPrimop(proc, args);
       } else if ( isClosure(proc) ){
-        var code = getCode(proc);
-        env = bind(getVars(proc), args, getEnv(proc));
+        var code = nil;
+        /*
+         * if a bind is not complete 
+         * I want to return a new proc which has the application so far
+         * 
+         * if the application is with 0 arguments, the same function is returned
+         * 
+         * i need to know if the pairUp is complete, if not exp is a new proc build with code
+         * while loop to evaluate the code must be bypassed
+         */
+        var frame = pairUp(getVars(proc), args);
+        var pairs = cdr(frame);
+        var header = car(frame);
+        var env = cons(pairs, getEnv(proc));
+        
+        if(car(header) == partialFrame){
+          return makeProc(cdr(header), getCode(proc), env);
+        }else{
+          code = getCode(proc); 
+        }
+        
+        //env = bind(getVars(proc), args, getEnv(proc));
 
         while(!isNil(code)){
           
@@ -540,8 +565,9 @@ function evalOr(predicates, env){
 */
   
   function bind(vars, vals, env){
-    return cons(pairUp(vars, vals), env);
+    return cons(pairUp(vars, vals, nil), env);
   }
+  
 /*
 (define  pair-up
   (lambda (vars vals)
@@ -557,20 +583,24 @@ function evalOr(predicates, env){
                      (cdr vals)))))))
 */
 
-function pairUp(vars, vals){
+function createFrameheader(label, lst, vars){
+  return cons(cons(label, vars), lst);
+}
+
+function pairUp(vars, vals, lst){
  //console.log("| pair up:", vars);
   if(isNil(vars)){
     if(isNil(vals)){
-      return nil;
+      return createFrameheader(completeFrame,  lst, nil);
     } else {
       throw new Error("To many arguments (vars: " + vars + " ) (vals: " + vals + ")");
     }
   }else if(isSymbol(vars)){
-    return cons(cons(vars, vals), nil);
+    return createFrameheader(completeFrame, cons(cons(vars, vals), lst), nil);
   }else if(isNil(vals)){
-    throw new Error("To few arguments (vars: " + vars + " ) (vals: " + vals + ")");
+    return createFrameheader(partialFrame, lst, vars);
   } else {
-    return cons(cons(car(vars), car(vals)), pairUp(cdr(vars), cdr(vals)));
+    return pairUp(cdr(vars), cdr(vals), cons(cons(car(vars), car(vals)), lst));
   }
 }
 
