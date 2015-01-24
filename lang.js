@@ -435,13 +435,14 @@ function eval(exp, env){
         var env = cons(pairs, getEnv(proc));
         
         if(car(header) == partialFrame){
+          if(isNil(pairs)){
+            return proc;
+          }
           return makeProc(cdr(header), getCode(proc), env);
         }else{
           code = getCode(proc); 
         }
         
-        //env = bind(getVars(proc), args, getEnv(proc));
-
         while(!isNil(code)){
           
           /* 
