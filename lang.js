@@ -177,9 +177,30 @@ function LFloat(value){
 }
 LFloat.prototype = new LNumber();
 
-function LPrimop(fn){
-  this.representation = "operator";
+function LPrimop(fn, representation, argNames){
   this.fn = fn; 
+  this.args = nil;
+  
+  if(representation){
+    this.representation = representation;
+  } else {
+    this.representation = "operator";
+  }
+
+  if(argNames){
+    this.constructArgs(argNames);
+  }
+}
+
+LPrimop.prototype.constructArgs = function(args){
+  this.args = nil;
+
+  for(var i=0; i < args.length; i++){
+    this.args = cons(intern(args[i]), this.args);
+  }
+}
+LPrimop.prototype.getCode = function(){
+  return cons(cons(intern(this.representation), this.args), nil);
 }
 
 LPrimop.prototype.toString = function(){
@@ -192,8 +213,12 @@ function LProc(args, code, env){
   this.env = env;
 }
 
+LProc.prototype.getCode = function(){
+  return this.code;
+}
+
 function getCode(proc){
-  return proc.code;
+  return proc.getCode();
 }
 function getEnv(proc){
   // console.log("getEnv", proc.env);
@@ -365,12 +390,56 @@ function read(string){
 
 
 /* Parser */
+function test(){
+  return {
+    "car": {
+      "car": {
+        "name": "+"
+      },
+      "cdr": {
+        "car": {
+          "name": "x"
+        },
+        "cdr": {
+          "car": {
+            "name": "y"
+          },
+          "cdr": {
+            "name": "nil"
+          }
+        }
+      }
+    },
+    "cdr": {
+      "name": "nil"
+    }
+  };
 
+}
 
-function applyPrimop(proc, args){
+function applyPrimop(proc, args, env){
+  /*
+   * TODO: generate new code for partially applied proc
+   * cons all arguments and the representation as last
+   * cons representation symbol onto arguments as code
+   */
   //console.log("applyPrimop", proc, "args:", args);
+  /*
+   * try to pair and get a partial framegegetEnvtEnv
+   */
+ // if(args.length > proc.args.){
+    
+ // }
+  var frame = pairUp(getVars(proc), args);
+  var env = addFrameToEnv(frame, env);
+  //console.log("frame:", JSON.stringify(frame, null , 2));
+  //console.log("env:", JSON.stringify(env, null , 2));
+
+  if(isPartialFrame(frame)){
+    return buildPartialAppliedProc(frame, proc, env);
+  }
+    
   args = valsToArgs(args);
-  //console.log("args", args);
   return proc.fn.apply(proc, args);
 }
 
@@ -543,9 +612,8 @@ function eval(exp, env){
       var proc = eval(car(exp), env);
       var args = evalList(cdr(exp), env); 
       if(isPrimitive(proc)){
-        return applyPrimop(proc, args);
+        return applyPrimop(proc, args, env);
       } else if ( isClosure(proc) ){
-        var code = nil;
         /*
          * if a bind is not complete 
          * I want to return a new proc which has the application so far
@@ -555,20 +623,15 @@ function eval(exp, env){
          * i need to know if the pairUp is complete, if not exp is a new proc build with code
          * while loop to evaluate the code must be bypassed
          */
-        var frame = pairUp(getVars(proc), args);
-        var pairs = cdr(frame);
-        var header = car(frame);
-        var env = cons(pairs, getEnv(proc));
         
-        if(car(header) == partialFrame){
-          if(isNil(pairs)){
-            return proc;
-          }
-          return makeProc(cdr(header), getCode(proc), env);
-        }else{
-          code = getCode(proc); 
+        var frame = pairUp(getVars(proc), args);
+        var env = addFrameToEnv(frame, getEnv(proc));
+       
+        if(isPartialFrame(frame)){
+          return buildPartialAppliedProc(frame, proc, env);
         }
         
+        var code = getCode(proc); 
         while(!isNil(code)){
           
           /* 
@@ -590,6 +653,24 @@ function eval(exp, env){
   }
 }    
 
+function addFrameToEnv(frame, env){
+  return cons(cdr(frame), env);
+}
+
+function buildPartialAppliedProc(frame, proc, env){
+  var pairs = cdr(frame);
+  var header = car(frame);
+  
+  if(isNil(pairs)){
+    return proc;
+  }
+  return makeProc(cdr(header), getCode(proc), env);
+}
+
+function isPartialFrame(frame){
+  return (car(car(frame)) == partialFrame);
+}
+        
 function evalDefine(exp, env){
   var variable = car(cdr(exp));
   var value;
@@ -792,8 +873,6 @@ function assq(symbol, alist){
 (define TFA 'to-few-arguments)
 (define TMA 'to-manny-arguments)
 */
-
-test_string = "(((lambda(x) (lambda (y) (+ y x) )) 3 ) (cdr '(5 . 4)) ))";
 topenv = cons(cons(nil,nil), nil);
 
 var env = nil;
@@ -832,8 +911,7 @@ function createPrimaryNumberOp (binaryFn){
 }
 
 function registerPrimaryNumberOp(token, binaryFn){
-  var primop = new LPrimop(createPrimaryNumberOp(binaryFn));
-  primop.representation = token;
+  var primop = new LPrimop(createPrimaryNumberOp(binaryFn), token, ['x', 'y']);
   extendTopEnv(intern(token), primop);
 }
 
@@ -854,49 +932,57 @@ registerPrimaryNumberOp("/", function(x, y){
   return x.devide(y);
 });
 
-extendTopEnv(intern("<"), new LPrimop(function(x, y){
+
+function registerKeyword(name, fn, argNames){
+  var op = new LPrimop(fn, name, argNames);
+  extendTopEnv(intern(name), op);
+}
+
+registerKeyword("<", function(x, y){
   return (x.compare(y) < 0 ) ? tee : nil;
-}));
+}, ['x', 'y']);
 
-extendTopEnv(intern(">"), new LPrimop(function(x, y){
+registerKeyword(">", function(x, y){
   return (x.compare(y) > 0 ) ? tee : nil;
-}));
+}, ['x', 'y']);
 
 
-extendTopEnv(intern("="), new LPrimop(function(x, y){
+registerKeyword("=", function(x, y){
   return (x.compare(y) == 0 ) ? tee : nil;
-}));
+}, ['x', 'y']);
 
 
-extendTopEnv(intern("eq?"), new LPrimop(function(x, y){
+registerKeyword("eq?", function(x, y){
   return (x == y)? tee : nil;
-}));
+}, ['x', 'y']);
 
-extendTopEnv(intern("nil?"), new LPrimop(function(v){
+registerKeyword("nil?", function(v){
   return isNil(v) ? tee : nil;
   
-}));
+}, ['v']);
 
 
-extendTopEnv(intern("car"), new LPrimop(car));
-extendTopEnv(intern("cdr"), new LPrimop(cdr));
-extendTopEnv(intern("first"), new LPrimop(car));
-extendTopEnv(intern("rest"), new LPrimop(cdr));
-extendTopEnv(intern("cons"), new LPrimop(cons));
-extendTopEnv(intern("apply"), new LPrimop(apply));
-extendTopEnv(intern("eval"), new LPrimop(apply));
 
-extendTopEnv(intern("display"), new LPrimop(function(exp){console.log(exp.toString());}));
-extendTopEnv(intern("printenv"), new LPrimop(printEnv));
+registerKeyword("car",car, ['x']);
+registerKeyword("cdr", cdr, ['x']);
+registerKeyword("first", car, ['x']);
+registerKeyword("rest", cdr, ['x']);
+registerKeyword("cons", cons, ['x', 'lst']);
+registerKeyword("apply", apply, ['proc', 'args']);
+registerKeyword("eval", apply, ['proc', 'args']);
+
+registerKeyword("display", function(exp){console.log(exp.toString())}, ['exp']);
+registerKeyword("printenv", printEnv, []);
 
 function createRationalAccessor(name, constructor){
-  extendTopEnv(intern(name), new LPrimop(function(rat){
+  var op = new LPrimop(function(rat){
     if(rat instanceof LRational){
       return constructor(rat);
     }else{
       return nil;
     }
-  }));
+  }, name, ['rat']);
+  extendTopEnv(intern(name), op);
 }
 
 createRationalAccessor("rat->int", function(rat){
@@ -920,94 +1006,3 @@ createRationalAccessor("rat->simplify", function(rat){
   var rest = rat.substract(whole);
   return cons(read("+"), cons(whole, cons(rest, nil)));
 });
-/*
-console.log("" + read(test_string));
-console.log(JSON.stringify(read(test_string), null, 2));
-*/
-/*
-test_quote = "(quote x)";
-console.log("" + eval(read(test_quote), env));
-*/
-/*test_lambda = "(lambda (x) (* x x))";
-console.log("" + eval(read(test_lambda), env));
-*/
-
-console.log("---  intern('*') == intern('*') ---");
-console.log("=>", intern("*") == intern("*"));
-console.log("");
-console.log("--- lookup(intern('*'), env) ---");
-
-console.log("=>",lookup(intern("*"), env));
-console.log("");
-
-console.log("--- env ---");
-printEnv(env);
-console.log("");
-
-console.log("--- eval(read('(* 4 4)'), env) ---");
-console.log("=>","" + eval(read("(* 4 4)"), env));
-console.log("");
-
-
-
-    var extensions = [
-      "(define ! (lambda (n) (cond ((< n 2) n) (t (* n (! (- n 1)))))))",
-      "(define ^ (lambda (x n) (cond (( < n 1) 1) (t (* x (^ x (- n 1 ))))) ))",
-      "(define last (lambda (x)( cond (( nil? (cdr x)) (car x))( t (last (cdr x))))))",
-      "(define concat (lambda (x)( cond ((nil? x) nil) ((nil? (car x)) (concat (cdr x)))( t (cons (car (car x)) (concat (cons(cdr(car x)) (cdr x))))))))",
-      "(define append (lambda x (concat x)))",
-      //"(define map (lambda (list, fn) (cond ((eq? list '()) '()) (t (cons (fn (car list)) (map (cdr list) fn) ))) ))",
-      "(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) ",
-      "(define test (lambda (x . y)  y )) ",
-      "(define list (lambda x x))",
-      "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
-      "(define +1 (lambda (x) (+ x 1) ) )",
-      "(define !i (lambda (x)(define iter (lambda (n m) (cond((eq? n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))",
-      "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
-      "(define fact-gen (lambda (fact) (lambda (n) (cond ((eq? n 0) 1)( t (* n (fact (- n 1))))))))"
-    ];
-    
-    
-    for(var i = 0; i < extensions.length ; i++){
-      try{
-      eval(read(extensions[i]), env);
-      } catch (e){
-        console.log("failed to parse", extensions[i]);
-      }
-    }
-    
-
-/*
-test_lambda_applied = "((lambda (x) (* x x)) 4)";
-console.log(all_symbols);
-console.log("" + eval(read(test_lambda_applied), env));
-*/
-
-var readline = require('readline');
-
-var rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-rl.setPrompt('> ');
-    rl.prompt();
-var inputbuffer = "";
-  rl.on('line',  function(answer){
-    if(answer.indexOf(";") != 0){
-      try{
-        var input = inputbuffer + '\n' +answer; 
-        console.log("=>","" + eval(read(input), env));
-        inputbuffer = "";  
-        
-      } catch(e){
-        if(e.retry){
-          inputbuffer = input;
-          //console.log(inputbuffer);
-        } else {
-          console.log(e);
-        }
-      }
-    }
-      rl.prompt();
-    
-  });
