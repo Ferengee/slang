@@ -204,7 +204,7 @@ LPrimop.prototype.getCode = function(){
 }
 
 LPrimop.prototype.toString = function(){
-  return ";primitive "+this.representation;
+  return ";primitive (lambda "+ this.args+ " " + car(this.getCode()) + ")";
 }
 
 function LProc(args, code, env){

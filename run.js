@@ -49,13 +49,14 @@ console.log("");
       "(define test (lambda (x . y)  y )) ",
       "(define list (lambda x x))",
       "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
-      "(define +1 (lambda (x) (+ x 1) ) )",
       "(define !i (lambda (x)(define iter (lambda (n m) (cond((eq? n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))",
       "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
       "(define fact-gen (lambda (fact) (lambda (n) (cond ((eq? n 0) 1)( t (* n (fact (- n 1))))))))",
       "(define (assoc key lst) (cond ((nil? lst) nil) ((eq? (car (car lst)) key) (cdr (car lst))) (t (assoc key (cdr lst)))))",
       "(define (add-pair key val lst)(cons (cons key val) lst))",
-      "(define (zip keys values) (cond ((and keys values) (cons (cons (car keys) (car values)) (zip (cdr keys) (cdr values ))))))"
+      "(define (zip keys values . fn) (define (do keys values fn) (cond ((and keys values) (cons (fn (car keys) (car values)) (do (cdr keys) (cdr values) fn))))) (do keys values (cond ((nil? fn) (cons)) (t (car fn)))))",
+      "(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))",
+      "(define reverse (reduce cons))"
     ];
     
     
