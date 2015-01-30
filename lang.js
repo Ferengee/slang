@@ -195,7 +195,7 @@ function LPrimop(fn, representation, argNames){
 LPrimop.prototype.constructArgs = function(args){
   this.args = nil;
 
-  for(var i=0; i < args.length; i++){
+  for(var i=args.length -1; i >= 0; i--){
     this.args = cons(intern(args[i]), this.args);
   }
 }
@@ -234,7 +234,14 @@ function getVars(proc){
 
 
 LProc.prototype.toString = function(){
-  return "(lambda "+ this.args+ " " + car(this.code) + ")";
+  var src = function codeToString(code){
+    if(isNil(code)){
+      return "";
+    }
+    return car(code) + codeToString(cdr(code));
+  }(this.getCode());
+
+  return "(lambda "+ this.args+ " " + src + ")";
 }
 
 function isNil(v){
@@ -675,7 +682,6 @@ function evalDefine(exp, env){
   var variable = car(cdr(exp));
   var value;
   if(isList(variable)){
-    console.log("--- creating a lambda ---");
     var args = cdr(variable);
     var code = cdr(cdr(exp));
     variable = car(variable);
@@ -946,6 +952,14 @@ registerKeyword(">", function(x, y){
   return (x.compare(y) > 0 ) ? tee : nil;
 }, ['x', 'y']);
 
+registerKeyword("<=", function(x, y){
+  return (x.compare(y) <= 0 ) ? tee : nil;
+}, ['x', 'y']);
+
+registerKeyword(">=", function(x, y){
+  return (x.compare(y) >= 0 ) ? tee : nil;
+}, ['x', 'y']);
+
 
 registerKeyword("=", function(x, y){
   return (x.compare(y) == 0 ) ? tee : nil;
@@ -961,18 +975,67 @@ registerKeyword("nil?", function(v){
   
 }, ['v']);
 
+var cxrfunctions = function (){
+  function genOptions(existing){
+    result = {};
+    var tokens = ['a','d']
+    var props = [".car",".cdr"];
+    var keys = Object.keys(existing);
+    for (var i = 0; i < keys.length; i++){
+      var pattern = keys[i];
+      for(var n = 0; n < 2; n++){
+        result[tokens[n] + pattern] = existing[pattern] + props[n] ; 
+      }
+    }
+    return result;
+  }
 
+  function genPartsFor(size){
+    var result = {r: "cell"};
+    for(var i = 0; i < size; i++){
+      result = genOptions(result); 
+    }
+    return result;
+  }
 
-registerKeyword("car",car, ['x']);
-registerKeyword("cdr", cdr, ['x']);
+  function createFunctions(){
+    var result = {};  
+    for(var i = 1; i < 4; i++){
+      var parts = genPartsFor(i);
+      var keys = Object.keys(parts);
+      for(var k = 0 ; k < keys.length; k++){
+        result[keys[k]] = createFunction(parts[keys[k]]);
+      }
+    }
+    return result;
+  }
+  
+  function createFunction(body){
+    return new Function("cell", "return undefinedToNil(" + body + ");");
+  }
+  
+  return createFunctions();
+}();
+
+for(name in cxrfunctions){
+  registerKeyword("c"+name, cxrfunctions[name], ['x']);
+}
+
+//undefinedToNil
+
+//registerKeyword("car",car, ['x']);
+//registerKeyword("cdr", cdr, ['x']);
+
 registerKeyword("first", car, ['x']);
 registerKeyword("rest", cdr, ['x']);
 registerKeyword("cons", cons, ['x', 'lst']);
+registerKeyword("list?", isList, ['lst']);
+
 registerKeyword("apply", apply, ['proc', 'args']);
 registerKeyword("eval", apply, ['proc', 'args']);
 
 registerKeyword("display", function(exp){console.log(exp.toString())}, ['exp']);
-registerKeyword("printenv", printEnv, []);
+registerKeyword("printenv", function(){return env;}, []);
 
 function createRationalAccessor(name, constructor){
   var op = new LPrimop(function(rat){
