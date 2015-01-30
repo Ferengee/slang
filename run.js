@@ -44,7 +44,6 @@ console.log("");
       "(define last (lambda (x)( cond (( nil? (cdr x)) (car x))( t (last (cdr x))))))",
       "(define concat (lambda (x)( cond ((nil? x) nil) ((nil? (car x)) (concat (cdr x)))( t (cons (car (car x)) (concat (cons(cdr(car x)) (cdr x))))))))",
       "(define append (lambda x (concat x)))",
-      //"(define map (lambda (list, fn) (cond ((eq? list '()) '()) (t (cons (fn (car list)) (map (cdr list) fn) ))) ))",
       "(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) ",
       "(define test (lambda (x . y)  y )) ",
       "(define list (lambda x x))",
@@ -52,10 +51,19 @@ console.log("");
       "(define !i (lambda (x)(define iter (lambda (n m) (cond((eq? n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))",
       "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
       "(define fact-gen (lambda (fact) (lambda (n) (cond ((eq? n 0) 1)( t (* n (fact (- n 1))))))))",
-      "(define (assoc key lst) (cond ((nil? lst) nil) ((eq? (car (car lst)) key) (cdr (car lst))) (t (assoc key (cdr lst)))))",
+      "(define (assoc key lst) (cond ((nil? lst) nil) ((eq? (car (car lst)) key) (car lst)) (t (assoc key (cdr lst)))))",
       "(define (add-pair key val lst)(cons (cons key val) lst))",
       "(define (zip keys values . fn) (define (do keys values fn) (cond ((and keys values) (cons (fn (car keys) (car values)) (do (cdr keys) (cdr values) fn))))) (do keys values (cond ((nil? fn) (cons)) (t (car fn)))))",
       "(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))",
+      "(define (compare fn a b) (cond   ((fn a b) a)   (t b) ))",
+      "(define (testIf fn a b) (cond   ((fn a) a)   (t b) ))",
+      "(define (minimum lst) (reduce (compare <) lst (car lst)))",
+      "(define (maximum lst) (reduce (compare >) lst (car lst)))",
+      "(define (not a)  (cond   ((nil? a) t)))",
+      "(define (not-fn fn a) (not (fn a)))",
+      "(define (apply-on args proc ) (apply proc args))",
+      "(define (range from to . step)  (define (do from to step)   (cond      ((>= to from) (cons from (do (+ from step) to step)))   ) ) (do from to (testIf (not-fn nil?) (car step) 1)))",
+      "(define (globals) (map car (cdr (car (printenv)))))",
       "(define reverse (reduce cons))"
     ];
     
