@@ -17,6 +17,7 @@ var lambda2 = intern("\\");
 var quote = intern("quote");
 var quasiquote = intern("quasiquote");
 var unquote = intern("unquote");
+var set = intern("set!");
 
 var cond = intern("cond");
 var els = intern("else");
@@ -284,7 +285,9 @@ function isOr(v){
 function isEval(v){
   return car(v) == evl;
 }
-
+function isSet(v){
+  return car(v) == set;
+}
 function cons(x, y){
   return new LCons(x, y);
 }
@@ -596,6 +599,11 @@ function eval(exp, env){
       return makeProc(args, code, env); 
       
     }
+    if (isSet(exp)){
+      if(isSymbol(car(cdr(exp)))){
+        return lookupAndReplace(car(cdr(exp)),  eval(car(cdr(cdr(exp))), env), env);
+      }
+    }
     if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
     /*
     * Cond 'becomes' the value it evaluates to
@@ -839,10 +847,26 @@ function lookup(symbol, env){
   if(isNil(env)){
     throw new Error("empty environnement at last frame while looking for: "+symbol);
   } else {
-    return function(vcell){
+    return function (vcell){
       if(isNil(vcell)){
         return lookup(symbol, cdr(env));
       } else {
+        return cdr(vcell);
+      }
+    }(assq(symbol, car(env)));
+  }
+}
+
+function lookupAndReplace(symbol, value, env){
+
+  if(isNil(cdr(env))){
+    throw new Error("empty environnement at last frame while trying to set: "+symbol);
+  } else {
+    return function (vcell){
+      if(isNil(vcell)){
+        return lookupAndReplace(symbol, value, cdr(env));
+      } else {
+        vcell.cdr = value;
         return cdr(vcell);
       }
     }(assq(symbol, car(env)));
@@ -879,15 +903,15 @@ function assq(symbol, alist){
 (define TFA 'to-few-arguments)
 (define TMA 'to-manny-arguments)
 */
-topenv = cons(cons(nil,nil), nil);
+topFrame = cons(cons(nil,nil), nil);
 
 var env = nil;
-env = cons(topenv, env);
-//topenv = cons(cons(nil,nil), nil);
-//env = cons(topenv, env);
+topEnv = cons(topFrame, env);
+env = cons(cons(nil, nil), topEnv);
+
 
 function extendTopEnv(symbol, object){
-  extendEnv(symbol, object, env);
+  extendEnv(symbol, object, topEnv);
 }
 
 function extendEnv(symbol, object, env) {
@@ -904,6 +928,7 @@ function extendEnv(symbol, object, env) {
 
 extendTopEnv(tee, tee);
 extendTopEnv(lambda, lambda);
+extendTopEnv(set, set);
 
 
 function createPrimaryNumberOp (binaryFn){
