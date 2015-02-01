@@ -105,15 +105,9 @@
            `(you are now carrying the ,object))
     (t '(you cannot get that.))))
 
-;(define (pickup object)
-;  (cond 
-;    ((member object
-;        (objects-at *location* *objects* *object-locations*))
-;      ((lambda () (push! (list object 'body) *object-locations*)
-;         `(you are now carrying the ,object))))
-;    (t '(you cannot get that.))))
-;;(walk 'west)
+;(walk 'west)
 (define (identiy x) x)
 (define member (generate-finder identiy))
 
-
+(define (inventory)
+  (cons 'items- (objects-at 'body *objects* *object-locations*)))
