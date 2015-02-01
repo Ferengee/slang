@@ -1099,7 +1099,7 @@ registerKeyword("cons", cons, ['x', 'lst']);
 registerKeyword("list?", isList, ['lst']);
 
 registerKeyword("apply", apply, ['proc', 'args']);
-registerKeyword("eval", apply, ['proc', 'args']);
+registerKeyword("eval", function(exp){ eval(exp, env);}, ['exp']);
 
 registerKeyword("display", function(exp){console.log(exp.toString())}, ['exp']);
 registerKeyword("printenv", function(){return env;}, []);
