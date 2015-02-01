@@ -18,6 +18,8 @@ var quote = intern("quote");
 var quasiquote = intern("quasiquote");
 var unquote = intern("unquote");
 var set = intern("set!");
+var pop = intern("pop!");
+var push = intern("push!");
 
 var cond = intern("cond");
 var els = intern("else");
@@ -288,6 +290,14 @@ function isEval(v){
 function isSet(v){
   return car(v) == set;
 }
+
+function isPush(v){
+  return car(v) == push;
+}
+function isPop(v){
+  return car(v) == pop;
+}
+
 function cons(x, y){
   return new LCons(x, y);
 }
@@ -600,9 +610,32 @@ function eval(exp, env){
       
     }
     if (isSet(exp)){
-      if(isSymbol(car(cdr(exp)))){
-        return lookupAndReplace(car(cdr(exp)),  eval(car(cdr(cdr(exp))), env), env);
-      }
+      var target = car(cdr(exp));
+      var value = eval(car(cdr(cdr(exp))), env);
+      if(isSymbol(target)){
+        return lookupAndReplace(target,  value, env);
+      } 
+    }
+    
+    if (isPush(exp)){
+      //(push item stack)
+      var value = eval(car(cdr(exp)), env);
+      //new value = cons(value lookup(target)) 
+      var target = car(cdr(cdr(exp)));
+      if(isSymbol(target)){
+        value = cons(value, lookup(target, env));
+        return lookupAndReplace(target,  value, env);
+      } 
+    }
+    if (isPop(exp)){
+      var target = car(cdr(exp));
+      //lookup 
+      var value = lookup(target, env);
+      
+      if(isSymbol(target)){
+        lookupAndReplace(target,  cdr(value), env);
+        return car(value);
+      } 
     }
     if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
     /*

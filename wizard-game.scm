@@ -81,19 +81,30 @@
   (do (find direction (cdr (assoc *location* *edges*)) cadr))
 )
 
-(define (find needle lst . matchfn)
-  (define (do needle lst matchfn)
-    (cond
-      ((nil? lst) nil)
-      ((eq? (matchfn (car lst)) needle) (car lst))
-      (t (do needle (cdr lst) matchfn))
-    )
+(define (generate-finder matchfn needle lst)
+  (cond
+    ((nil? lst) nil)
+    ((eq? (matchfn (car lst)) needle) (car lst))
+    (t (generate-finder matchfn needle (cdr lst)))
   )
-  (do needle lst (cond ((nil? matchfn) car) (t (car matchfn))))
+)
+
+
+(define (find needle lst . matchfn)
+  (generate-finder (cond ((nil? matchfn) car) (t (car matchfn))) needle lst)
 )
 
 (define (closure-test x)
   (lambda () x)
 )
 
-(walk 'west)
+(define (pickup object)
+  (cond ((member object
+                 (objects-at *location* *objects* *object-locations*))
+         (push (list object 'body) *object-locations*)
+           `(you are now carrying the ,object))
+          (t '(you cannot get that.))))
+
+;(walk 'west)
+(define (identiy x) x)
+(define member (generate-finder identiy))

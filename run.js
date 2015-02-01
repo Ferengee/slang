@@ -2,6 +2,32 @@ var fs = require('fs'),
     vm = require('vm');
 
 var sandbox = {};    
+function loadScm(file){
+  console.log("loadScm:", file);
+  fs.readFile(file.name, 'utf8', function (err,data) {
+    if (err) {
+      return console.log(err);
+    }
+    var lines = data.split('\n');
+    var inputbuffer = "";
+    for(var i=0; i< lines.length; i++){
+      var line = lines[i];
+      if(line.indexOf(";") != 0){
+        try{
+          var input = inputbuffer + '\n' +line; 
+          console.log("=>","" + eval(read(input), env));
+          inputbuffer = "";  
+        } catch(e){
+          if(e.retry){
+            inputbuffer = input;
+          } else {
+            console.log(e);
+          }
+        }
+      }    
+    }
+  });
+}
 
 fs.readFile("./lang.js", 'utf8', function (err,data) {
   if (err) {
@@ -19,6 +45,7 @@ console.log("" + eval(read(test_quote), env));
 /*test_lambda = "(lambda (x) (* x x))";
 console.log("" + eval(read(test_lambda), env));
 */
+registerKeyword("load", loadScm, ['file']);
 
 console.log("---  intern('*') == intern('*') ---");
 console.log("=>", intern("*") == intern("*"));
@@ -90,7 +117,7 @@ var rl = readline.createInterface({
   output: process.stdout
 });
 rl.setPrompt('> ');
-    rl.prompt();
+rl.prompt();
 var inputbuffer = "";
   rl.on('line',  function(answer){
     if(answer.indexOf(";") != 0){
@@ -98,11 +125,9 @@ var inputbuffer = "";
         var input = inputbuffer + '\n' +answer; 
         console.log("=>","" + eval(read(input), env));
         inputbuffer = "";  
-        
       } catch(e){
         if(e.retry){
           inputbuffer = input;
-          //console.log(inputbuffer);
         } else {
           console.log(e);
         }
