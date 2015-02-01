@@ -647,7 +647,8 @@ function eval(exp, env){
     * 
     */
     if (isCond(exp)) { 
-      exp = resolveCond(cdr(exp), env); 
+      var code = resolveCond(cdr(exp), env); 
+      exp = evaluateCodeBlock(code, env);
     }  
     else if (isAnd(exp)) { 
       return evalAnd(cdr(exp), env); 
@@ -679,27 +680,34 @@ function eval(exp, env){
           return buildPartialAppliedProc(frame, proc, env);
         }
         
-        var code = getCode(proc); 
-        while(!isNil(code)){
-          
-          /* 
-          * only the statements before the last statement should be recursively evaluated 
-          * The last statement should become an expression which can be evaluated
-          * in the next iteration
-          */
-          if(isNil(cdr(code))){
-            exp = car(code);
-          }else {
-            eval( car(code), env);
-          }
-          code = cdr(code);
-        }
+        var code = getCode(proc);
+        exp = evaluateCodeBlock(code, env);
+
       } else {
         throw new Error("invalid proc: " + JSON.stringify(proc) + ":" + args);
       }
     }
   }
 }    
+
+function evaluateCodeBlock(code, env){
+  var exp = nil;
+  while(!isNil(code)){
+    
+    /* 
+    * only the statements before the last statement should be recursively evaluated 
+    * The last statement should become an expression which can be evaluated
+    * in the next iteration
+    */
+    if(isNil(cdr(code))){
+      exp = car(code);
+    }else {
+      eval( car(code), env);
+    }
+    code = cdr(code);
+  }
+  return exp;
+}
 
 function addFrameToEnv(frame, env){
   return cons(cdr(frame), env);
@@ -784,7 +792,8 @@ function resolveCond(clauses, env){
   if(clauses == nil){
     return nil;
   } else if(car(car(clauses)) == els ||  !isFalse(eval(car(car(clauses)), env))){
-     return car(cdr(car(clauses)));
+     // now only evalling car but could eval all
+     return cdr(car(clauses));
   } else {
     return resolveCond(cdr(clauses), env);
   }

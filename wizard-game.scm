@@ -89,7 +89,6 @@
   )
 )
 
-
 (define (find needle lst . matchfn)
   (generate-finder (cond ((nil? matchfn) car) (t (car matchfn))) needle lst)
 )
@@ -99,12 +98,22 @@
 )
 
 (define (pickup object)
-  (cond ((member object
-                 (objects-at *location* *objects* *object-locations*))
-         (push (list object 'body) *object-locations*)
+  (cond 
+    ((member object
+         (objects-at *location* *objects* *object-locations*))
+     (push! (list object 'body) *object-locations*)
            `(you are now carrying the ,object))
-          (t '(you cannot get that.))))
+    (t '(you cannot get that.))))
 
-;(walk 'west)
+;(define (pickup object)
+;  (cond 
+;    ((member object
+;        (objects-at *location* *objects* *object-locations*))
+;      ((lambda () (push! (list object 'body) *object-locations*)
+;         `(you are now carrying the ,object))))
+;    (t '(you cannot get that.))))
+;;(walk 'west)
 (define (identiy x) x)
 (define member (generate-finder identiy))
+
+
