@@ -106,8 +106,51 @@
     (t '(you cannot get that.))))
 
 ;(walk 'west)
-(define (identiy x) x)
-(define member (generate-finder identiy))
+(define (identity x) x)
+(define member (generate-finder identity))
 
 (define (inventory)
   (cons 'items- (objects-at 'body *objects* *object-locations*)))
+
+(define help '(use (look) to look around and use (walk) to move around. Use (inventory) to see what you are carrying))
+
+
+(define (have object)
+    (member object (inventory)))
+
+(define *chain-welded* nil)
+
+(define *bucket-filled* nil)
+
+(define (create-game-action name actionfn location expected-subject expected-object precondition subject object)
+  (cond ((and (eq? *location* location)
+            (eq? subject expected-subject)
+            (eq? object expected-object)
+            (have expected-subject)
+            (precondition))
+            (actionfn)
+         )
+    (t `(you cannot ,name like that.))))
+
+(define dunk 
+  (create-game-action 'dunk (lambda () 
+    (set! *bucket-filled* t) 
+    '(the bucket is now full of water.)
+    ) 'garden 'bucket 'well (lambda () *chain-welded*)))
+
+(define weld 
+  (create-game-action 'weld (lambda () 
+    (set! *chain-welded* t) 
+    '(the chain is now securely welded to the bucket.)
+    ) 'attic 'chain 'bucket (lambda () (not *chain-welded*))))
+
+(define splash (create-game-action 'splash (lambda ()
+   (cond ((not *bucket-filled*) '(the bucket has nothing in it.))
+         ((have 'frog) '(the wizard awakens and sees that you stole his frog.
+                         he is so upset he banishes you to the
+                         netherworlds- you lose! the end.))
+         (t '(the wizard awakens from his slumber and greets you warmly.
+              he hands you the magic low-carb donut- you win! the end.)))
+    ) 'living-room 'bucket 'wizard t))
+  
+

@@ -35,11 +35,6 @@ var evl = intern("eval");
 var partialFrame = intern("partial");
 var completeFrame = intern("complete");
 
-/* READER */
-tokenize = function(string){
-  return string.replace(/([\(\)'\n`,])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
-};
-
 function LSymbol(name){
   this.name = name;
 }
@@ -352,90 +347,70 @@ function makeNumber(type, x, y){
   return existing;
 }
 
+function Parser(tokens){  
+  var getToken = function(){ return tokens.shift() };
 
-function read(string){
-  
-  
-  var tokens = tokenize(string);
-  function getToken(){
-    return tokens.shift();
-  }
- 
-  function readObject(token){
+  this.parseObject = function(token){
     token = token || getToken();
     if(token === undefined){
       var error =  new Error("Incomplete read");
       error.retry = true;
       throw error;
     }
-    if(token == "(") { return readList(); }
-    if(token == "'") { return cons(quote, cons(readObject(), nil)); }
-    if(token == "`") { return cons(quasiquote, cons(readObject(), nil)); }
-    if(token == ",") { return cons(unquote, cons(readObject(), nil)); }
-    if(token.match(/^[-+]?[0123456789]/)) { return readNumber(token)}
+    if(token == "(") { return this.parseList(); }
+    if(token == "'") { return cons(quote, cons(this.parseObject(), nil)); }
+    if(token == "`") { return cons(quasiquote, cons(this.parseObject(), nil)); }
+    if(token == ",") { return cons(unquote, cons(this.parseObject(), nil)); }
+    if(token.match(/^[-+]?[0123456789]/)) { return this.parseNumber(token)}
     return intern(token);
   }
   
-  function readNumber(token){
-    if(token.indexOf(".") > -1){
-      return makeNumber("float", parseFloat(token));
-    }else if(token.indexOf("/") > -1){
-      var parts = token.split("/");
-      return makeNumber("rational", parseInt(parts[0]), parseInt(parts[1]));
-    }else {
-      return makeNumber("int", parseInt(token));
-    }
-    
-  }
-  
-  function readList(){
+  this.parseList = function(){
     var token = getToken();
     
     if(token == ")") { return nil; }
     if(token == ".") {
-      var r = readObject(); 
+      var r = this.parseObject(); 
       var token = getToken();
       if(token != ")"){
         throw new Error("Invalid list after . notation");
       }
       return r;
     }
-    return cons(readObject(token), readList());
-    
-    
-    
+    return cons(this.parseObject(token), this.parseList());
   }
-  return readObject();
-}
-
-
-/* Parser */
-function test(){
-  return {
-    "car": {
-      "car": {
-        "name": "+"
-      },
-      "cdr": {
-        "car": {
-          "name": "x"
-        },
-        "cdr": {
-          "car": {
-            "name": "y"
-          },
-          "cdr": {
-            "name": "nil"
-          }
-        }
+    
+  this.parseNumber = function(token){
+    if(token.indexOf(".") > -1){
+      return makeNumber("float", parseFloat(token));
+    }else if(token.indexOf("/") > -1){
+      var parts = token.split("/");
+      if(parts.length > 2){
+        throw new Error("Invalid rational format: " + token);
       }
-    },
-    "cdr": {
-      "name": "nil"
+      return makeNumber("rational", parseInt(parts[0]), parseInt(parts[1]));
+    }else {
+      return makeNumber("int", parseInt(token));
     }
+  }
+}  
+  
+function Reader(){  
+  /* READER */
+  var tokenize = function(string){
+    return string.replace(/([\(\)'\n`,])/g, " $1 ").replace(/\s+/g," ").split(" ").filter(function(x) { return x != "" ; })
   };
+  
+  this.tokenize = tokenize;
 
+  this.read = function (string){  
+    var tokens = tokenize(string);    
+    return new Parser(tokens).parseObject();
+  }  
 }
+
+
+
 
 function applyPrimop(proc, args, env){
   /*
@@ -607,8 +582,8 @@ function eval(exp, env){
       var args = car(cdr(exp));
       var code = cdr(cdr(exp));
       return makeProc(args, code, env); 
-      
     }
+    
     if (isSet(exp)){
       var target = car(cdr(exp));
       var value = eval(car(cdr(cdr(exp))), env);
@@ -627,6 +602,7 @@ function eval(exp, env){
         return lookupAndReplace(target,  value, env);
       } 
     }
+    
     if (isPop(exp)){
       var target = car(cdr(exp));
       //lookup 
@@ -637,6 +613,7 @@ function eval(exp, env){
         return car(value);
       } 
     }
+    
     if (isEval(exp)) { return eval(eval(car(cdr(exp)), env),env); } 
     /*
     * Cond 'becomes' the value it evaluates to
@@ -659,20 +636,12 @@ function eval(exp, env){
     else {
       /* (<symbol> <arg1> ... ) */
       var proc = eval(car(exp), env);
-      var args = evalList(cdr(exp), env); 
+      var args = evalList(cdr(exp), env);
+      
       if(isPrimitive(proc)){
         return applyPrimop(proc, args, env);
-      } else if ( isClosure(proc) ){
-        /*
-         * if a bind is not complete 
-         * I want to return a new proc which has the application so far
-         * 
-         * if the application is with 0 arguments, the same function is returned
-         * 
-         * i need to know if the pairUp is complete, if not exp is a new proc build with code
-         * while loop to evaluate the code must be bypassed
-         */
         
+      } else if ( isClosure(proc) ){
         var frame = pairUp(getVars(proc), args);
         var env = addFrameToEnv(frame, getEnv(proc));
        
@@ -1101,6 +1070,12 @@ registerKeyword("list?", isList, ['lst']);
 registerKeyword("apply", apply, ['proc', 'args']);
 registerKeyword("eval", function(exp){ eval(exp, env);}, ['exp']);
 
+// 
+var readFromInput = function(){return "'not-implemented-yet"};
+function registeReadFromInput(fn){
+  readFromInput = fn;
+}
+registerKeyword("read", function(){ return readFromInput() }, []);
 registerKeyword("display", function(exp){console.log(exp.toString())}, ['exp']);
 registerKeyword("printenv", function(){return env;}, []);
 
@@ -1136,3 +1111,19 @@ createRationalAccessor("rat->simplify", function(rat){
   var rest = rat.substract(whole);
   return cons(read("+"), cons(whole, cons(rest, nil)));
 });
+
+read = new Reader().read;
+
+var module = module || {exports: {}};
+module.exports.Parser = Parser;
+module.exports.reader = new Reader();
+module.exports.symbols = all_symbols;
+module.exports.environnement = env; 
+module.exports.functions = {
+  cons: cons,
+  makeNumber: makeNumber,
+  eval: eval
+};
+
+
+
