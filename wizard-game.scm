@@ -151,6 +151,6 @@
                          netherworlds- you lose! the end.))
          (t '(the wizard awakens from his slumber and greets you warmly.
               he hands you the magic low-carb donut- you win! the end.)))
-    ) 'living-room 'bucket 'wizard t))
+    ) 'living-room 'bucket 'wizard (lambda ()t)))
   
 
