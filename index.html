@@ -61,6 +61,72 @@
   <button onclick="add('cdr')">cdr</button>
 </div>
 
+<script type="text/slang" id="prelude" language="slang">
+; <!-- 
+
+(define ! 
+  (lambda (n)
+    (cond
+      ((< n 2) n) 
+      (t (* n (! (- n 1)))))))
+
+(define !i
+  (lambda (x)
+    (define iter 
+      (lambda (n m) 
+        (cond
+          ((= n 0) m)
+          (t (iter (- n 1) (* m n)))
+        )
+      ))
+      (iter x 1)))
+
+(define map* (lambda (fn . lists)
+  (cond 
+    ((nil? lists) '())
+    ((has-nil (map car lists)) '())
+    (t (cons  (apply fn (map car lists)) (apply map* (cons fn (map cdr lists) ))))
+  )
+))
+
+(define has-nil (lambda (list) 
+  (cond
+    ((nil? list) nil)
+    ((nil? (car list)) t)
+    (t (has-nil (cdr list)))
+   ) 
+))
+
+(define ^ (lambda (x n) (cond (( < n 1) 1) (t (* x (^ x (- n 1 ))))) ))
+(define last (lambda (x)( cond (( nil? (cdr x)) (car x))( t (last (cdr x))))))
+(define concat (lambda (x)( cond ((nil? x) nil) ((nil? (car x)) (concat (cdr x)))( t (cons (car (car x)) (concat (cons(cdr(car x)) (cdr x))))))))
+(define append (lambda x (concat x)))
+(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) 
+(define test (lambda (x . y)  y )) 
+(define list (lambda x x))
+(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) 
+(define !i (lambda (x)(define iter (lambda (n m) (cond((= n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))
+(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))
+(define fact-gen (lambda (fact) (lambda (n) (cond ((= n 0) 1)( t (* n (fact (- n 1))))))))
+(define (assoc key lst) (cond ((nil? lst) nil) ((eq? (car (car lst)) key) (car lst)) (t (assoc key (cdr lst)))))
+(define (add-pair key val lst)(cons (cons key val) lst))
+(define (zip keys values . fn) (define (do keys values fn) (cond ((and keys values) (cons (fn (car keys) (car values)) (do (cdr keys) (cdr values) fn))))) (do keys values (cond ((nil? fn) (cons)) (t (car fn)))))
+(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))
+(define (compare fn a b) (cond   ((fn a b) a)   (t b) ))
+(define (testIf fn a b) (cond   ((fn a) a)   (t b) ))
+(define (minimum lst) (reduce (compare <) lst (car lst)))
+(define (maximum lst) (reduce (compare >) lst (car lst)))
+(define (not a)  (cond   ((nil? a) t)))
+(define (not-fn fn a) (not (fn a)))
+(define (apply-on args proc ) (apply proc args))
+(define (range from to . step)  (define (do from to step) (cond ((>= to from) (cons from (do (+ from step) to step)))   ) ) (do from to (testIf (not-fn nil?) (car step) 1)))
+(define (globals) (map car (cdr (car (printenv)))))
+(define reverse (reduce cons))
+; / --> 
+
+</script>
+
+
 <script type="text/slang" id="wizard-game" language="slang">
 ; <!-- 
 ;scheme compatibilty:
@@ -102,7 +168,7 @@
     ((nil? lst) nil)
     ((fn (car lst)) (cons (car lst) (remove-if-not fn (cdr lst))))
     (t  (remove-if-not fn (cdr lst)))
-)
+  )
 )
 
 (define (objects-at loc objs obj-locs)
@@ -223,70 +289,10 @@
 
  <script language="javascript" defer>
 
-    var extensions = [
-      "(define ! " +
-      "  (lambda (n)" + 
-      "    (cond" + 
-      "      ((< n 2) n) " +
-      "      (t (* n (! (- n 1)))))))",
-      "(define !i" +
-      "  (lambda (x)" +
-      "    (define iter " +
-      "      (lambda (n m) " +
-      "        (cond" +
-      "          ((= n 0) m)" +
-      "          (t (iter (- n 1) (* m n)))" +
-      "        )" +
-      "      ))" +
-      "      (iter x 1)))",
-      "(define map* (lambda (fn . lists)" +
-      "  (cond " +
-      "    ((nil? lists) '())" +
-      "    ((has-nil (map car lists)) '())" +
-      "    (t (cons  (apply fn (map car lists)) (apply map* (cons fn (map cdr lists) ))))" +
-      "  )" +
-      "))",
-      "(define has-nil (lambda (list) " +
-      "  (cond" +
-      "    ((nil? list) nil)" +
-      "    ((nil? (car list)) t)" +
-      "    (t (has-nil (cdr list)))" +
-      "   ) " +
-      "))",
-      "(define ^ (lambda (x n) (cond (( < n 1) 1) (t (* x (^ x (- n 1 ))))) ))",
-      "(define last (lambda (x)( cond (( nil? (cdr x)) (car x))( t (last (cdr x))))))",
-      "(define concat (lambda (x)( cond ((nil? x) nil) ((nil? (car x)) (concat (cdr x)))( t (cons (car (car x)) (concat (cons(cdr(car x)) (cdr x))))))))",
-      "(define append (lambda x (concat x)))",
-      "(define mapcar (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (mapcar fn (cdr l)) )) ))) ",
-      "(define test (lambda (x . y)  y )) ",
-      "(define list (lambda x x))",
-      "(define map (lambda (fn l) (cond ((eq? l '()) '()) (else (cons (fn (car l)) (map fn (cdr l)) )) ))) ",
-      "(define !i (lambda (x)(define iter (lambda (n m) (cond((= n 0) m)(t (iter (- n 1) (* m n))))))(iter x 1)))",
-      "(define y (lambda (f) ((lambda (x)(f (lambda (y) ((x x) y) ))) (lambda (x) (f (lambda (y) ((x x)  y) ) )))))",
-      "(define fact-gen (lambda (fact) (lambda (n) (cond ((= n 0) 1)( t (* n (fact (- n 1))))))))",
-      "(define (assoc key lst) (cond ((nil? lst) nil) ((eq? (car (car lst)) key) (car lst)) (t (assoc key (cdr lst)))))",
-      "(define (add-pair key val lst)(cons (cons key val) lst))",
-      "(define (zip keys values . fn) (define (do keys values fn) (cond ((and keys values) (cons (fn (car keys) (car values)) (do (cdr keys) (cdr values) fn))))) (do keys values (cond ((nil? fn) (cons)) (t (car fn)))))",
-      "(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))",
-      "(define (compare fn a b) (cond   ((fn a b) a)   (t b) ))",
-      "(define (testIf fn a b) (cond   ((fn a) a)   (t b) ))",
-      "(define (minimum lst) (reduce (compare <) lst (car lst)))",
-      "(define (maximum lst) (reduce (compare >) lst (car lst)))",
-      "(define (not a)  (cond   ((nil? a) t)))",
-      "(define (not-fn fn a) (not (fn a)))",
-      "(define (apply-on args proc ) (apply proc args))",
-      "(define (range from to . step)  (define (do from to step) (cond ((>= to from) (cons from (do (+ from step) to step)))   ) ) (do from to (testIf (not-fn nil?) (car step) 1)))",
-      "(define (globals) (map car (cdr (car (printenv)))))",
-      "(define reverse (reduce cons))"
-    ];
-    
-    for(var i = 0; i < extensions.length ; i++){
-      eval(read(extensions[i]), env);
-    }
-
-    function loadWizardGame(){
+  
+    function loadSlangCode(id){
       var inputbuffer = "";
-      var lines = document.getElementById('wizard-game').text.split('\n');
+      var lines = document.getElementById(id).text.split('\n');
       for(var i=0; i< lines.length; i++){
         var line = lines[i];
         if(line.indexOf(";") != 0){
@@ -499,7 +505,9 @@
       }
       cmdline.value = cmdline.value + r;
     }
-    loadWizardGame();
+
+    loadSlangCode('prelude');
+    loadSlangCode('wizard-game');
 
     (function (){
       document.getElementById("cmdline").style.width = document.getElementById("body").offsetWidth;
