@@ -237,6 +237,11 @@ option {
 #cmdline {
   width: 490px;
   display: inline-block;
+  color: rgba(255, 255, 255, 0.8);
+  background-color: #151515;
+  border: 2px solid rgba(0, 0, 0, 0.7);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.7);
+  border-top: 2px solid rgba(0, 0, 0, 1);
 }
 
 .edit-btns {
