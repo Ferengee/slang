@@ -29,36 +29,59 @@
     <div class="container">
       <section id="main_content">
         <h3>
-<a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
-<div class="control" style="position: fixed; padding:0px; margin-top:0px; top:0px;">
-  <select id="suggest"></select>
-  <button onclick="enterSuggestion()">ok</button>
+<a id="slang-interactive-demo" class="anchor" href="#slang-interactive-demo" aria-hidden="true"><span class="octicon octicon-link"></span></a>a Slang interactive demo</h3>
+<a class="btn clearbtn" onclick="clearOutput()">clear</a>
 
-  <button onclick="balance()">balance</button>
-  <button onclick="enter()">run</button>
-</div>
-<ul id="output"></ul>
+<ul id="output">
+  <li>Define variables with (define name value)</li>
+  <li>Define functions with (define (function-name param1 param2)(body)) </li>
+  <li>The wizard game from Land of lisp <a href="http://lisperati.com/data.html">(http://lisperati.com/data.html)</a>
+      is loaded into this demo. Use (look) to start.
+  </li>
+
+  <li>(globals) gives you the list of global variables</li>
+  <li>use () to apply a function, for example (+ 2 3) which applies +</li>
+  <li>Functions can be partially applied, which will result in a new function</li>
+  <li>run just the function name to see the implementation, or click edit to alter it</li>
+  <li>Function parameters can be applied with keyword symbols, for example </li>
+  <ol>
+    <li>(define (test a b) (- a b))</li>
+    <li>(test :b 7 :a 3)</li>
+
+  </ol>
 
 
+  
+</ul>
 <div class="control">
-  <textarea rows="6" type="text" id="cmdline" inputmode="latin lowerCase" onKeyUp="suggest()" ></textarea>
-  <button onclick="clearOutput()">clear</button>
-  <button onclick="fromEnv()">edit</button>
-  <button onclick="save()">save</button>
-  <button onclick="load()">load</button>
+  <select id="suggest"></select><a class="btn" id="suggest-ok" onclick="enterSuggestion()">ok</a>
+</div>
+<div class="control">
+ 
+  <textarea rows="16" type="text" id="cmdline" inputmode="latin lowerCase" onKeyUp="suggest(event)" ></textarea>
+  <ol class="edit-btns"> 
+    <li><a class="btn" onclick="balance()">balance</a></li>
+    <li><a class="btn" onclick="enter()">run ⏎</a></li>
+  
+   
+
+    <li><a class="btn" onclick="fromEnv()">edit</a></li>
+    <li><a class="btn" onclick="save()">save</a></li>
+    <li><a class="btn" onclick="load()">load</a></li>
+  </ol>
 </div>
 
 
 <div style="display: none;">
-  <button onclick="add('(')">(</button>
-  <button onclick="add(')')">)</button>
-  <button onclick="add('define')">define</button>
-  <button onclick="add('lambda')">lambda</button>
-  <button onclick="add('cond')">cond</button>
-  <button onclick="add('list')">list</button>
-  <button onclick="add('cons')">cons</button>
-  <button onclick="add('car')">car</button>
-  <button onclick="add('cdr')">cdr</button>
+  <a onclick="add('(')">(</a>
+  <a onclick="add(')')">)</a>
+  <a onclick="add('define')">define</a>
+  <a onclick="add('lambda')">lambda</a>
+  <a onclick="add('cond')">cond</a>
+  <a onclick="add('list')">list</a>
+  <a onclick="add('cons')">cons</a>
+  <a onclick="add('car')">car</a>
+  <a onclick="add('cdr')">cdr</a>
 </div>
 
 <script type="text/slang" id="prelude" language="slang">
@@ -372,7 +395,18 @@
       return cmdline.value.substr(0, caret).split(/[ \)\(]/).slice(-1)[0];
     }
 
-    function suggest(){
+    function suggest(e){
+
+      if (typeof e == 'undefined' && window.event) { 
+        e = window.event; 
+      }
+      if (e.keyCode == 13 && e.shiftKey)
+      {
+        e.preventDefault();
+        enter();
+        return false;
+      }
+      
       var cmdline = document.getElementById("cmdline");
       var value = cmdline.value;
       var caret = cmdline.selectionStart;
