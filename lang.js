@@ -107,11 +107,11 @@ function LRational(num, denom){
     while(b != 0){
       t = a;
       a = b;
-      b = a % b;
+      b = t % b;
     }
     return a;
   }(num, denom);
-   
+  
   this.num = num / div;
   this.denom = denom / div;
 }
