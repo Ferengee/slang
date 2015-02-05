@@ -102,14 +102,16 @@ LNumber.prototype.toString = function(){
 }
 
 function LRational(num, denom){
-  var div = function gcd(a, b){
-    if (b == 0){
-      return a;
-    } else {
-      return gcd(b, a % b);
+  var div = function gcd2(a, b){
+    var t;
+    while(b != 0){
+      t = a;
+      a = b;
+      b = a % b;
     }
+    return a;
   }(num, denom);
-  
+   
   this.num = num / div;
   this.denom = denom / div;
 }
@@ -914,13 +916,15 @@ function assq(symbol, alist){
 (define TFA 'to-few-arguments)
 (define TMA 'to-manny-arguments)
 */
-topFrame = cons(cons(nil,nil), nil);
-
 var env = nil;
-topEnv = cons(topFrame, env);
-env = cons(cons(nil, nil), topEnv);
+var topFrame = cons(cons(nil,nil), nil);
+var topEnv = cons(topFrame, env);
 
+function buildEnvironnement(){
+  return cons(cons(nil, nil), topEnv);
+}
 
+env = buildEnvironnement();
 function extendTopEnv(symbol, object){
   extendEnv(symbol, object, topEnv);
 }
@@ -1118,7 +1122,7 @@ var module = module || {exports: {}};
 module.exports.Parser = Parser;
 module.exports.reader = new Reader();
 module.exports.symbols = all_symbols;
-module.exports.environnement = env; 
+module.exports.environnement = buildEnvironnement; 
 module.exports.functions = {
   cons: cons,
   makeNumber: makeNumber,

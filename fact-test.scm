@@ -5,8 +5,10 @@
     (define iter 
       (lambda (n m) 
         (cond
-          ((eq? n 0) m)
+          ((< n 1) m)
           (t (iter (- n 1) (* m n)))
         )
       ))
       (iter x 1)))
+ 
+

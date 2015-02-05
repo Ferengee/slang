@@ -86,39 +86,7 @@ console.log("" + eval(read(test_lambda), env));
     }
   }
   
-  var readline = require('readline');
+console.log(eval(read("(!i 5)"), env));
 
-  var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  registeReadFromInput(function(){
-    return "'unavailable";
-  });
-
-  rl.setPrompt('> ');
-  rl.prompt();
-  var inputbuffer = "";
-  rl.on('line',  function(answer){
-    if(answer.indexOf(";") != 0){
-      inputbuffer = handleDefaultRead(answer, inputbuffer, env);
-    }
-    rl.prompt();
-  });
-  
-  function handleDefaultRead(answer, inputbuffer, env){
-    try{
-        var input = inputbuffer + '\n' +answer; 
-        console.log("=>","" + eval(read(input), env));
-        inputbuffer = "";  
-      } catch(e){
-        if(e.retry){
-          inputbuffer = input;
-        } else {
-          console.log(e);
-        }
-      }
-      return inputbuffer;
-  }
+console.log(eval(read("(!i 5000)"), env));
 });
