@@ -649,6 +649,7 @@ function eval(exp, env){
         
       } else if ( isClosure(proc) ){
         var frame = pairUpKeyValArguments(getVars(proc), args, nil);
+        //var frame = pairUp(getVars(proc), args, nil);
         env = addFrameToEnv(frame, getEnv(proc));
        
         if(isPartialFrame(frame)){
@@ -856,15 +857,18 @@ function pairUpKeyValArguments(vars, vals, lst){
   }
   
   var collected = new_vars.map(function(v){return v.name;});
+  var vars_end = nil;
   
   while(!isNil(vars)){
-    if(collected.indexOf(car(vars).name) < 0){
+    if(isSymbol(vars)){
+       vars_end = vars;
+    } else if(collected.indexOf(car(vars).name) < 0){
       new_vars.unshift(car(vars));
     }
     vars = cdr(vars);
   }
   
-  vars = arrayToConsList(new_vars);
+  vars = arrayToConsList(new_vars, vars_end);
   vals = arrayToConsList(new_vals,  arrayToConsList(unassigned_vals));
 
   return pairUp(vars, vals, lst);
