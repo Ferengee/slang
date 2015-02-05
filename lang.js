@@ -262,6 +262,9 @@ function isList(v){
 function isNumeric(v){
   return v instanceof LNumber;
 }
+function isKeywordSymbol(v){
+  return isSymbol(v) &&  (v.name.indexOf(":") == 0);
+}
 
 function isSymbol(v){
   return v instanceof LSymbol;
@@ -574,6 +577,7 @@ function eval(exp, env){
   while(true){
   
     if (isNumeric( exp)) { return exp; }
+    if (isKeywordSymbol( exp )) { return exp; }
     if (isSymbol( exp )) { return lookup(exp, env); }
     if (isQuote(exp)) { return car(cdr(exp)); }
     if (isQuasiQuote(exp)) { return evalQuasiQuote(car(cdr(exp)), env); }
@@ -644,8 +648,8 @@ function eval(exp, env){
         return applyPrimop(proc, args, env);
         
       } else if ( isClosure(proc) ){
-        var frame = pairUp(getVars(proc), args);
-        var env = addFrameToEnv(frame, getEnv(proc));
+        var frame = pairUpKeyValArguments(getVars(proc), args, nil);
+        env = addFrameToEnv(frame, getEnv(proc));
        
         if(isPartialFrame(frame)){
           return buildPartialAppliedProc(frame, proc, env);
@@ -822,8 +826,59 @@ function createFrameheader(label, lst, vars){
   return cons(cons(label, vars), lst);
 }
 
+/*
+ * scan vals to see if there are pairs to be made from :key value parameters
+ * - :key must exist as variable or be ignored
+ * - if a key exists it must be removed from vars
+ * - after all :key value pairs have been made
+ * - pair the rest of the values to the rest of the variables (normal pairUp behaviour) 
+ */
+function pairUpKeyValArguments(vars, vals, lst){
+  var new_vars = [];
+  var new_vals = [];
+  var unassigned_vals = [];
+  
+  //scan and arrange all values
+  while(!isNil(vals)){
+    var value = car(vals);
+    if(isKeywordSymbol(value)){
+      var name = value.name.slice(1);
+      value = car(cdr(vals));
+      vals = cdr(vals);
+      
+      new_vals.unshift(value);
+      new_vars.unshift(intern(name));
+      // remove name from vars;
+    } else {
+      unassigned_vals.unshift(value);
+    }
+    vals = cdr(vals);
+  }
+  
+  var collected = new_vars.map(function(v){return v.name;});
+  
+  while(!isNil(vars)){
+    if(collected.indexOf(car(vars).name) < 0){
+      new_vars.unshift(car(vars));
+    }
+    vars = cdr(vars);
+  }
+  
+  vars = arrayToConsList(new_vars);
+  vals = arrayToConsList(new_vals,  arrayToConsList(unassigned_vals));
+
+  return pairUp(vars, vals, lst);
+}
+
+function arrayToConsList(a, lst){
+  if(lst === undefined) { lst = nil };
+  for(var i = 0; i < a.length; i++){
+    lst = cons(a[i], lst);
+  }
+  return lst
+}
+
 function pairUp(vars, vals, lst){
- //console.log("| pair up:", vars);
   if(isNil(vars)){
     if(isNil(vals)){
       return createFrameheader(completeFrame,  lst, nil);

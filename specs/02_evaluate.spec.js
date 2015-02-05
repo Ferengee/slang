@@ -1,15 +1,32 @@
 var Slang = require("../lang");
 
+var eval = Slang.functions.eval;
+var read = Slang.reader.read;
+var makeNumber = Slang.functions.makeNumber;
+
+function testEvaluation(env, code, result){
+  var ast = eval(read(code), env);
+  expect(ast.toString()).toEqual(result);
+}
+    
+
 describe("slang evaluator", function(){
   var env;
   var ast;
-  var eval = Slang.functions.eval;
-  var read = Slang.reader.read;
-  var makeNumber = Slang.functions.makeNumber;
+
   
   beforeEach(function(){
     env = Slang.environnement();
   });
+  
+  it("numbers to be self evaluating", function(){
+      testEvaluation(env, "1", "1");
+  });
+  
+  it("keyword symbols to be self evaluating", function(){
+      testEvaluation(env, ":aap", ":aap");
+  });
+  
   
   it("evaluate simple math", function(){
     testStr = "(+ 3 5)";

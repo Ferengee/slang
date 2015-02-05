@@ -43,6 +43,18 @@ describe("slang evaluator", function(){
     expect(function(){eval(read("(!i 5000)"), env)}).not.toThrow("Maximum call stack size exceeded");
   });
   
+  it("target parameters by name", function(){
+    testEvaluation(env, "(define (testfn a b) (- a b))", "testfn");
+    testEvaluation(env, "((testfn) 70 50)", "20");
+    testEvaluation(env, "((testfn 80) 40)", "40");
+    testEvaluation(env, "(testfn 90 30)", "60");
+
+    testEvaluation(env, "(testfn :a 90 :b 30)", "60");
+    testEvaluation(env, "(testfn :b 90 :a 30)", "-60");
+    testEvaluation(env, "(testfn :b 90)", "(lambda (a) (- a b))");
+    testEvaluation(env, "(testfn :b 90 30)", "-60");
+  });
+  
 });
 
 describe("utility gcd", function(){
