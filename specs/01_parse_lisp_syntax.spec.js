@@ -11,19 +11,19 @@ describe("slang Parser", function(){
     
     it("should be able to create integers", function(){
       var token = "1";
-      var ast = Slang.functions.makeNumber("", 1);
+      var ast = Slang.functions.makeNumber("int", 1);
       expect(parser.parseNumber(token)).toEqual(ast);
     });
     
     it("should be able to create floating point", function(){
       var token = "1.3";
-      var ast = Slang.functions.makeNumber("", 1.3);
+      var ast = Slang.functions.makeNumber("float", 1.3);
       expect(parser.parseNumber(token)).toEqual(ast);
     });
     
     it("should be able to create rational", function(){
       var token = "1/2";
-      var ast = Slang.functions.makeNumber("", 1, 2);
+      var ast = Slang.functions.makeNumber("rational", 1, 2);
       expect(parser.parseNumber(token)).toEqual(ast);
     });
     

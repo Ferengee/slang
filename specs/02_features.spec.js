@@ -15,7 +15,19 @@ describe("slang evaluator", function(){
   beforeEach(function(){
     env = Slang.environnement();
   });
+
+  it("set! should not be able to manipulate undefined values", function(){
+    var doSet = function(){ eval(read("(set! *aap* 'noot)"), env)};
+    expect(doSet).toThrow();
+  });
   
+  it("set! should be able to manipulate values", function(){
+    testEvaluation(env, "(define *aap* 'noot)", "*aap*")
+    testEvaluation(env, "*aap*", "noot");
+    testEvaluation(env, "(set! *aap* 'mies)", "mies");
+    testEvaluation(env, "*aap*", "mies");
+
+  });
   
   it("quasiquoting should unquote for one symbol", function(){
     testEvaluation(env, "(define aap 'noot)", "aap")
@@ -60,8 +72,13 @@ describe("slang evaluator", function(){
     testEvaluation(env, "(testfn :b 90 :a 30)", "-60");
     testEvaluation(env, "(testfn :b 90)", "(lambda (a) (- a b))");
     testEvaluation(env, "(testfn :b 90 30)", "-60");
+  });
+  
+  it("should be able to set default values", function(){
+    testEvaluation(env, "(define (testfn :a 2 b) (- a b))", "testfn");
+    testEvaluation(env, "(testfn :b 3)", "-1");
+    testEvaluation(env, "(testfn 2 3)", "-1");
 
-    
   });
   
 });
