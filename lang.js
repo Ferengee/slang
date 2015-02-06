@@ -117,6 +117,10 @@ LNumber.prototype.toString = function(){
 }
 
 function LRational(num, denom){
+  if(Math.abs(num) == Infinity || Math.abs(denom) == Infinity){
+    this.num = num;
+    this.denom = denom;
+  } else {
   var div = function gcd2(a, b){
     var t;
     while(b != 0){
@@ -129,6 +133,7 @@ function LRational(num, denom){
   
   this.num = num / div;
   this.denom = denom / div;
+  }
 }
 
 LRational.prototype = new LNumber();
