@@ -142,7 +142,19 @@
 (define (not a)  (cond   ((nil? a) t)))
 (define (not-fn fn a) (not (fn a)))
 (define (apply-on args proc ) (apply proc args))
-(define (range from to . step)  (define (do from to step) (cond ((>= to from) (cons from (do (+ from step) to step)))   ) ) (do from to (testIf (not-fn nil?) (car step) 1)))
+(define (range from to . step) 
+    (define 
+      (do from to step acc) 
+      (cond 
+        ((>= to from) 
+          (do (+ from step) to step (cons from acc))) 
+        (t acc)
+      )
+    )
+    (reverse (do from to 
+      (testif 
+        (not-fn nil?) 
+        (car step) 1) nil)))
 (define (globals) (map car (cdr (car (printenv)))))
 (define reverse (reduce cons))
 ; / --> 

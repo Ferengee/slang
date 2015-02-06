@@ -52,7 +52,7 @@ LCons.prototype.toString = function(){
   return "(" +this.toList() + ")"; 
 } 
 
-
+/*
 LCons.prototype.toList = function(){
   if(this.cdr instanceof LCons){
     return "" + this.car + " " + this.cdr.toList() ; 
@@ -62,6 +62,21 @@ LCons.prototype.toList = function(){
     return "" + this.car + " . " + this.cdr ;
   }
 } 
+*/
+LCons.prototype.toList = function(){
+  var cell = this;
+  var result = "";
+  while(cell.cdr instanceof LCons){
+    result = result + cell.car + " ";
+    cell = cell.cdr;
+  }
+  if (cell.cdr === nil){
+    result = result + cell.car; 
+  } else {
+    result = result + cell.car + " . " + cell.cdr ;
+  }
+  return result;
+}
 
 function LNumber(value){
   this.value = value;
@@ -206,6 +221,8 @@ LPrimop.prototype.getCode = function(){
 LPrimop.prototype.toString = function(){
   return ";primitive (lambda "+ this.args+ " " + car(this.getCode()) + ")";
 }
+
+LPrimop.prototype.undefinedToNil = undefinedToNil;
 
 function LProc(args, code, env){
   this.args = args;
@@ -1110,7 +1127,7 @@ var cxrfunctions = function (){
   }
   
   function createFunction(body){
-    return new Function("cell", "return undefinedToNil(" + body + ");");
+    return new Function("cell", "return this.undefinedToNil(" + body + ");");
   }
   
   return createFunctions();
@@ -1187,6 +1204,9 @@ module.exports.functions = {
   makeNumber: makeNumber,
   eval: eval
 };
+module.exports.api = {
+  registerKeyword: registerKeyword
+}
 
 
 
