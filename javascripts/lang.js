@@ -42,6 +42,12 @@ function LSymbol(name){
 LSymbol.prototype.toString = function(){
   return this.name;
 }
+LSymbol.prototype.compare = function(other){
+  if(this.name == other.name){
+    return 0; 
+  }
+  return -1;
+}
 
 function LCons(car, cdr){
   this.car = car;
@@ -77,6 +83,20 @@ LCons.prototype.toList = function(){
   }
   return result;
 }
+LCons.prototype.compare = function(other){
+  if(other instanceof LCons){
+    var carDiff = car(other).compare(car(this));
+    if( carDiff == 0){
+      return cdr(other).compare(cdr) 
+    } else {
+      return carDiff; 
+    }
+    
+  } else {
+    return -1;
+  }
+}
+
 
 function LNumber(value){
   this.value = value;
@@ -117,6 +137,10 @@ LNumber.prototype.toString = function(){
 }
 
 function LRational(num, denom){
+  if(Math.abs(num) == Infinity || Math.abs(denom) == Infinity){
+    this.num = num;
+    this.denom = denom;
+  } else {
   var div = function gcd2(a, b){
     var t;
     while(b != 0){
@@ -129,6 +153,7 @@ function LRational(num, denom){
   
   this.num = num / div;
   this.denom = denom / div;
+  }
 }
 
 LRational.prototype = new LNumber();
@@ -242,13 +267,9 @@ function getEnv(proc){
   return proc.env;
 }
 
-function setEnv(proc, env){
-  proc.env = env;
-}
 function getVars(proc){
   return proc.args;
 }
-
 
 LProc.prototype.toString = function(){
   var src = function codeToString(code){
@@ -284,7 +305,7 @@ function isKeywordSymbol(v){
 }
 
 function isSymbol(v){
-  return v instanceof LSymbol;
+  return !isNil(v) &&  v instanceof LSymbol;
 }
 
 function isPrimitive(proc){
@@ -350,7 +371,7 @@ function makeProc(args, code, env){
   console.log("|     code:", code);
   console.log("|     env:", env);
   */
-  return new LProc(args, code, env)
+  return new LProc(args, code, env);
 }
 
 function makeNumber(type, x, y){
@@ -435,19 +456,10 @@ function Reader(){
 
 
 function applyPrimop(proc, args, env){
-  /*
-   * TODO: generate new code for partially applied proc
-   * cons all arguments and the representation as last
-   * cons representation symbol onto arguments as code
-   */
-  //console.log("applyPrimop", proc, "args:", args);
-  /*
-   * try to pair and get a partial framegegetEnvtEnv
-   */
- // if(args.length > proc.args.){
-    
- // }
-  var frame = pairUp(getVars(proc), args);
+  //throw new Error("applyPrimop is not using correct pairUp api")
+  var unassigned = preparePairupParameters(getVars(proc), args);
+  var frame = pairUp(unassigned.keys, unassigned.values, unassigned.pairs, unassigned.defaults, unassigned.tail);
+
   var env = addFrameToEnv(frame, env);
   //console.log("frame:", JSON.stringify(frame, null , 2));
   //console.log("env:", JSON.stringify(env, null , 2));
@@ -568,6 +580,18 @@ function intern(token){
         ( apply ( eval (car exp) env)
           ( evlist (cdr exp) env ))))))
 */
+  function logEnv(env, depth){
+    var count=0;
+    depth = depth || -1;
+    while(!isNil(env)){
+      console.log("(",count++, ") env frame: ", car(env));
+      if(depth > 0 && count > depth){
+        break;
+      }
+      env = cdr(env); 
+    }
+  
+  }
 
     /*
      * While (!done){
@@ -592,7 +616,7 @@ function eval(exp, env){
   //console.log("eval", exp.toString());
   //printEnv(env);
   while(true){
-  
+    if (isNil(exp)) { return exp ;}
     if (isNumeric( exp)) { return exp; }
     if (isKeywordSymbol( exp )) { return exp; }
     if (isSymbol( exp )) { return lookup(exp, env); }
@@ -665,23 +689,130 @@ function eval(exp, env){
         return applyPrimop(proc, args, env);
         
       } else if ( isClosure(proc) ){
-        var frame = pairUpKeyValArguments(getVars(proc), args, nil);
+        env = getEnv(proc);
+        var unassigned = preparePairupParameters(getVars(proc), args);
+        var frame = pairUp(unassigned.keys, unassigned.values, unassigned.pairs, unassigned.defaults, unassigned.tail);
         //var frame = pairUp(getVars(proc), args, nil);
-        env = addFrameToEnv(frame, getEnv(proc));
-       
+        env = addFrameToEnv(frame, env);
+        
         if(isPartialFrame(frame)){
           return buildPartialAppliedProc(frame, proc, env);
-        }
-        
+        } 
         var code = getCode(proc);
         exp = evaluateCodeBlock(code, env);
-
       } else {
         throw new Error("invalid proc: " + JSON.stringify(proc) + ":" + args);
       }
     }
   }
 }    
+
+function ConsArray(){
+  this.items = [];
+  this.tail = false;
+}
+ConsArray.prototype.filterOut = function(itemName){
+  this.items = this.items.filter(function(p){ 
+    return itemName.indexOf(p.name) < 0 
+  });
+}
+
+
+function ParameterList(consList){
+  this.consList = consList;
+  this.parameters = [];
+  this.unnamedValues = [];
+  this.pairs = {};
+  
+  this.tail = null;
+  
+  var lst = this.consList;
+  while(!isNil(lst)){
+    if(isSymbol(lst)){
+      this.tail = lst.name;
+      break;
+    }
+    value = car(lst);
+    if(isKeywordSymbol(value)){
+      var name = value.name.slice(1);
+      lst = cdr(lst); // jump to value
+      this.pairs[name] = car(lst);
+      this.parameters.push(name);
+    } else {
+      this.parameters.push(value.name);
+      this.unnamedValues.push(value);
+    }
+    lst = cdr(lst);
+  }
+}
+  
+ParameterList.prototype.getUnnamedValues = function(){
+  return this.unnamedValues;
+}
+
+ParameterList.prototype.getKeys = function(){
+  return Object.keys(this.pairs);
+  
+}
+ParameterList.prototype.getParameters = function(){
+  return this.parameters;
+}
+ParameterList.prototype.getPairs = function(){
+  return this.pairs;
+}
+
+/*
+ * 
+ */
+function getKeysFromList(input){
+  var result = new ConsArray();
+  var rest = nil;
+  while(!isNil(input)){
+    if(isSymbol(input)){
+       result.tail = true;
+       result.items.push(input);
+       break;
+    } else {
+      value = car(input);
+      if(isKeywordSymbol(value)){
+        var name = value.name.slice(1);
+        input = cdr(input); // skip value
+        result.items.push(intern(name));        
+      } else {
+        result.items.push(value);
+      }
+    }
+    input = cdr(input);
+  }
+}
+
+function extractKeyValues(input, pairs){
+  var result = new ConsArray();
+  var rest = nil;
+  while(!isNil(input)){
+    if(isSymbol(input)){
+       result.tail = true;
+       result.items.push(input);
+       break;
+    } else {
+      value = car(input);
+      if(isKeywordSymbol(value)){
+        var name = value.name.slice(1);
+        input = cdr(input);
+        value = car(input);
+        intern(name);
+        
+        pairs[name] = value; 
+        // remove name from vars;
+      } else {
+        result.items.push(value);
+      }
+    }
+    input = cdr(input);
+  }
+  return result;
+}
+
 
 function evaluateCodeBlock(code, env){
   var exp = nil;
@@ -710,26 +841,24 @@ function buildPartialAppliedProc(frame, proc, env){
   var pairs = cdr(frame);
   var header = car(frame);
   
-  if(isNil(pairs)){
+  if(Object.keys(pairs).length == 0){
     return proc;
-  }
+  }  
   return makeProc(cdr(header), getCode(proc), env);
 }
 
 function isPartialFrame(frame){
   return (car(car(frame)) == partialFrame);
 }
-        
+ 
 function evalDefine(exp, env){
   var variable = car(cdr(exp));
-  var value;
+  var value = cdr(exp);
   if(isList(variable)){
-    var args = cdr(variable);
-    var code = cdr(cdr(exp));
+    value = makeProc(cdr(car(value)), cdr(value), env);
     variable = car(variable);
-    value =  makeProc(args, code, env);
   } else {
-    value = eval(car(cdr(cdr(exp))),env);
+    value = eval(car(cdr(value)),env);
   }
   return extendEnv(variable, value, env);
 }
@@ -822,7 +951,8 @@ function evalOr(predicates, env){
 */
   
   function bind(vars, vals, env){
-    return cons(pairUp(vars, vals, nil), env);
+    throw new Error("bind is not using correct pairUp api")
+    return cons(pairUp(vars, vals, {}), env);
   }
   
 /*
@@ -844,76 +974,116 @@ function createFrameheader(label, lst, vars){
   return cons(cons(label, vars), lst);
 }
 
-/*
- * scan vals to see if there are pairs to be made from :key value parameters
- * - :key must exist as variable or be ignored
- * - if a key exists it must be removed from vars
- * - after all :key value pairs have been made
- * - pair the rest of the values to the rest of the variables (normal pairUp behaviour) 
- */
-function pairUpKeyValArguments(vars, vals, lst){
-  var new_vars = [];
-  var new_vals = [];
-  var unassigned_vals = [];
+
+function sortKeyValuePairs(input){
+  var new_keys = [];
+  var new_values = [];
+  var unassigned_input = [];
+  var input_end = nil;
+  var filtered = [];
   
   //scan and arrange all values
-  while(!isNil(vals)){
-    var value = car(vals);
-    if(isKeywordSymbol(value)){
-      var name = value.name.slice(1);
-      value = car(cdr(vals));
-      vals = cdr(vals);
-      
-      new_vals.unshift(value);
-      new_vars.unshift(intern(name));
-      // remove name from vars;
-    } else {
-      unassigned_vals.unshift(value);
-    }
-    vals = cdr(vals);
-  }
-  
-  var collected = new_vars.map(function(v){return v.name;});
-  var vars_end = nil;
-  
-  while(!isNil(vars)){
-    if(isSymbol(vars)){
-       vars_end = vars;
-    } else if(collected.indexOf(car(vars).name) < 0){
-      new_vars.unshift(car(vars));
-    }
-    vars = cdr(vars);
-  }
-  
-  vars = arrayToConsList(new_vars, vars_end);
-  vals = arrayToConsList(new_vals,  arrayToConsList(unassigned_vals));
+  var value;
 
-  return pairUp(vars, vals, lst);
+  return {
+    keys: new_keys, 
+    values: new_values,
+    unassigned: unassigned_input, 
+    filtered: filtered,
+    unassigned_end: input_end
+  }
 }
 
 function arrayToConsList(a, lst){
   if(lst === undefined) { lst = nil };
-  for(var i = 0; i < a.length; i++){
-    lst = cons(a[i], lst);
+  for(var i = a.length ; i > 0 ; i--){
+    lst = cons(a[i-1], lst);
   }
   return lst
 }
 
-function pairUp(vars, vals, lst){
-  if(isNil(vars)){
-    if(isNil(vals)){
-      return createFrameheader(completeFrame,  lst, nil);
-    } else {
-      throw new Error("To many arguments (vars: " + vars + " ) (vals: " + vals + ")");
-    }
-  }else if(isSymbol(vars)){
-    return createFrameheader(completeFrame, cons(cons(vars, vals), lst), nil);
-  }else if(isNil(vals)){
-    return createFrameheader(partialFrame, lst, vars);
-  } else {
-    return pairUp(cdr(vars), cdr(vals), cons(cons(car(vars), car(vals)), lst));
-  }
+
+
+/*
+ * ParameterList
+ *  getUnnamedValues // just the not matched values
+ *  getKeys
+ *  getParameters // all parameters
+ *  getPairs 
+} 
+ */
+
+function preparePairupParameters(variables, values){
+  
+  variables = new ParameterList(variables);
+  values = new ParameterList(values);
+  var assignedKeys = values.getKeys();
+  var keys = variables.getParameters().filter(function(k){
+    return assignedKeys.indexOf(k) < 0;
+  });
+  var result = {
+    keys: keys,
+    tail: variables.tail,
+    values: values.getUnnamedValues(),
+    pairs: values.getPairs(),
+    defaults: variables.getPairs()
+  }  
+  return result;
 }
+
+/*
+ * should be called witj vars.length <= vals.length
+ */
+  //any key which is in defaults but not in result should be copied to result
+/*
+  * if variables.length > values.length
+  *   if current variable in defaults -> bind defaults
+  *   else bind next value
+  */
+function realPairUp(keys, values, result, defaults){  
+  while(keys.length > 0){
+    var current_key = keys.shift(); 
+    if (keys.length >= values.length && defaults[current_key] != undefined){
+      result[current_key] = defaults[current_key];       
+    } else {
+      if(values.length == 0){
+        keys.unshift(current_key);
+        break; 
+      }
+      result[current_key] = values.shift();
+    }
+  }
+  return values;
+}
+
+function pairUp(vars, vals, result, defaults, tail){
+  if(tail != null){
+    var lastVals = realPairUp(vars, vals, result, defaults);
+    if(vars.length > 0){
+      return createFrameheader(partialFrame, result, 
+                               arrayToConsList(vars.map(function(c){
+                                 return intern(c);
+                                 
+                              }), intern(tail)));
+    }
+    result[tail] = arrayToConsList(lastVals);
+    return createFrameheader(completeFrame, result, nil); 
+  }
+  
+  if(vars.length < vals.length){
+    throw new Error("To many arguments (vars: " + vars + " ) (vals: " + vals + ")");
+  } 
+  
+  realPairUp(vars, vals, result, defaults);
+
+  if(vars.length == vals.length){
+    return createFrameheader(completeFrame, result, nil);
+  }else {
+    return createFrameheader(partialFrame, result, arrayToConsList(vars.map(function(c){return intern(c);})));
+  }
+  
+}
+
 
 /*
 (define lookup
@@ -929,21 +1099,17 @@ function pairUp(vars, vals, lst){
         (assq sym (car env)))))))
 */
 
+
 function lookup(symbol, env){
-  //console.log("lookup():", symbol.toString());
-  //printEnv(env);
-  
-  if(isNil(env)){
-    throw new Error("empty environnement at last frame while looking for: "+symbol);
-  } else {
-    return function (vcell){
-      if(isNil(vcell)){
-        return lookup(symbol, cdr(env));
-      } else {
-        return cdr(vcell);
-      }
-    }(assq(symbol, car(env)));
+  var count=0;
+  while(!isNil(env)){
+    var frame = car(env);
+    if(haskey(symbol, frame)){
+      return keyval(symbol, frame); 
+    }
+    env = cdr(env); 
   }
+  throw new Error("empty environnement at last frame while looking for: "+symbol);
 }
 
 function lookupAndReplace(symbol, value, env){
@@ -951,14 +1117,12 @@ function lookupAndReplace(symbol, value, env){
   if(isNil(cdr(env))){
     throw new Error("empty environnement at last frame while trying to set: "+symbol);
   } else {
-    return function (vcell){
-      if(isNil(vcell)){
-        return lookupAndReplace(symbol, value, cdr(env));
-      } else {
-        vcell.cdr = value;
-        return cdr(vcell);
-      }
-    }(assq(symbol, car(env)));
+    if(haskey(symbol, car(env))){
+      storeKeyval(symbol, value, car(env));
+      return keyval(symbol, car(env)); 
+    }else{
+      return lookupAndReplace(symbol, value, cdr(env));
+    }
   }
 }
 
@@ -972,12 +1136,19 @@ function lookupAndReplace(symbol, value, env){
       (else
         (assq sym (cdr alist))))))
 */
-
+function haskey(symbol, hash){
+  return !(hash[symbol.name] === undefined);
+}
 function keyval(symbol, hash){  
-  return undefinedToNil(hash[symbol]);
+  return undefinedToNil(hash[symbol.name]);
+}
+function storeKeyval(symbol, value, hash){
+  hash[symbol.name] = value;
 }
 
+
 function assq(symbol, alist){
+  
   if(isNil(alist)){
     return nil;
   }
@@ -993,11 +1164,11 @@ function assq(symbol, alist){
 (define TMA 'to-manny-arguments)
 */
 var env = nil;
-var topFrame = cons(cons(nil,nil), nil);
+var topFrame = cons({}, nil);
 var topEnv = cons(topFrame, env);
 
 function buildEnvironnement(){
-  return cons(cons(nil, nil), topEnv);
+  return cons({}, topEnv);
 }
 
 env = buildEnvironnement();
@@ -1006,17 +1177,16 @@ function extendTopEnv(symbol, object){
 }
 
 function extendEnv(symbol, object, env) {
-  //console.log("-- extending: " + symbol);
+  //console.log("-- extending: ", symbol.toString(), object );
   var frame = car((env));
   var tail = frame.cdr;
-  frame.cdr = cons(cons(symbol, object), tail);
+  storeKeyval(symbol, object, frame);
   // printFrame(frame);
   //console.log("--------------");
   return symbol;
 }
 
-
-
+//extendTopEnv(nil, nil);
 extendTopEnv(tee, tee);
 extendTopEnv(lambda, lambda);
 extendTopEnv(set, set);
@@ -1157,7 +1327,7 @@ function registeReadFromInput(fn){
 }
 registerKeyword("read", function(){ return readFromInput() }, []);
 registerKeyword("display", function(exp){console.log(exp.toString())}, ['exp']);
-registerKeyword("printenv", function(){return env;}, []);
+registerKeyword("printenv", function(){console.log( env);}, []);
 
 function createRationalAccessor(name, constructor){
   var op = new LPrimop(function(rat){
@@ -1201,12 +1371,20 @@ module.exports.symbols = all_symbols;
 module.exports.environnement = buildEnvironnement; 
 module.exports.functions = {
   cons: cons,
+  car: car,
+  cdr: cdr,
   makeNumber: makeNumber,
-  eval: eval
+  eval: eval,
+  lookup: lookup,
+  isNil: isNil,
+  isSymbol: isSymbol,
+  isKeywordSymbol: isKeywordSymbol
 };
 module.exports.api = {
-  registerKeyword: registerKeyword
+  registerKeyword: registerKeyword,
+  intern: intern,
+  pairUp: pairUp,
+  extractKeyValues: extractKeyValues,
+  preparePairupParameters: preparePairupParameters,
+  ParameterList: ParameterList
 }
-
-
-
