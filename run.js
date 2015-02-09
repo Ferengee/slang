@@ -80,7 +80,7 @@ console.log("" + eval(read(test_lambda), env));
   
   for(var i = 0; i < extensions.length ; i++){
     try{
-    eval(read(extensions[i]), env);
+      eval(read(extensions[i]), env);
     } catch (e){
       console.log("failed to parse", extensions[i]);
     }
