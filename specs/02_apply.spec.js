@@ -84,7 +84,7 @@ describe("slang apply", function(){
     });
   });
   
-  xit("apply a function", function(){
+  it("apply a function", function(){
     testStr = "(define (aap noot) noot)";
     ast = eval(read(testStr), env);
     
@@ -96,7 +96,7 @@ describe("slang apply", function(){
     expect(ast.toString()).toEqual("mies");
   });
   
-  xit("partially apply a function", function(){
+  it("partially apply a function", function(){
     testStr = "(define (aap noot mies) (list noot mies))";
     ast = eval(read(testStr), env);
     
@@ -108,9 +108,20 @@ describe("slang apply", function(){
     expect(ast.toString()).toEqual("(lambda (mies) (list noot mies))");
   });
   
-  /* TODO: rewrite to use api to parse frame  */
+  it("partially apply a function with rest and closure", function(){
+    var reduce = "(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))";
+    ast = eval(read(reduce), env);
+    
+    expect(ast.toString()).toEqual("reduce");
+    
+    var reverse = "(define reverse (reduce cons))";
+    ast = eval(read(reverse), env);
+    ast = eval(read("reverse"), env);
+    expect(ast.toString()).toEqual("(lambda (lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc))))))");
+    var reverse_applied = eval(read("(reverse '(1 2 3 4))"), env);
+    expect(reverse_applied.toString()).toEqual("(4 3 2 1)");
+  });
   
-
   
   describe("preparePairupParameters", function(){
     it("build an empty set", function(){
@@ -246,36 +257,34 @@ describe("slang apply", function(){
       expect(hash.b).toEqual(makeNumber("int", 9));
       expect(hash.c).toEqual(makeNumber("int", 7));
      // expect(hash.d).toEqual(makeNumber("int", 6));
-     // expect(hash.r).toEqual([]);
+      expect(hash.r.toString()).toEqual("(5 4 3 2 1)");
       expect(car(car(frame))).toEqual(intern('complete'));
     });
   
-    xit("to make a complete frame with without rest", function(){
+    it("to make a complete frame with without rest", function(){
       var pairs = {};
       var variables = evalRead("'(a :b 2 c :d 3)");
       var values = evalRead("'(9 8 7 6)");
-      var unassigned = preparePairupParameters(variables, values, pairs);
-      expect(unassigned.keys.items).toEqual(['a','b','c','d'].map(function(c){
-        return intern(c);
-      }));
-      var frame = pairUp(unassigned.keys,unassigned.values, pairs);
+      var unassigned = preparePairupParameters(variables, values);
+      expect(unassigned.keys).toEqual(['a','b','c','d']);
+      var frame = pairUp(unassigned.keys,unassigned.values, unassigned.pairs, unassigned.defaults);
       var hash = cdr(frame);
-      expect(hash.a).toEqual(makeNumber("int", 8));
-      expect(hash.b).toEqual(makeNumber("int", 9));
+      expect(hash.a).toEqual(makeNumber("int", 9));
+      expect(hash.b).toEqual(makeNumber("int", 8));
       expect(hash.c).toEqual(makeNumber("int", 7));
-     // expect(hash.d).toEqual(makeNumber("int", 6));
+      expect(hash.d).toEqual(makeNumber("int", 6));
      // expect(hash.r).toEqual([]);
       expect(car(car(frame))).toEqual(intern('complete'));
     });
     
     
-   xit("apply with to many values to throw an exception", function(){
+   it("apply with to many values to throw an exception", function(){
       var variables = evalRead("'(a :b 2 c :d 3)");
       var values = evalRead("'(:b 9 8 7 6 5 4 3 2 1)");
-      var unassigned = preparePairupParameters(variables, values, pairs);
+      var unassigned = preparePairupParameters(variables, values);
    
       var testPairup = function() {
-        pairUp(unassigned.keys,unassigned.values, pairs);
+        pairUp(unassigned.keys,unassigned.values, unassigned.pairs, unassigned.defaults) ;
       };
       
       expect(testPairup).toThrow();

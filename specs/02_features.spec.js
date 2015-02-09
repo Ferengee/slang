@@ -35,7 +35,7 @@ describe("slang evaluator", function(){
 
   });
   
-  xit("optimize for tail recursion", function(){
+  it("optimize for tail recursion", function(){
     tailRecFact = "(define  (!i x)   " +
               "  (define (iter n m)    " +
               "    (cond    " +
@@ -50,7 +50,6 @@ describe("slang evaluator", function(){
     testEvaluation(env, "(! 5)", "120");
     testEvaluation(env, "(!i 5)", "120");
     
-    //testEvaluation(env, "(!i 5000)", "120");
     expect(function(){eval(read("(! 5000)"), env)}).toThrow("Maximum call stack size exceeded");
     expect(function(){eval(read("(!i 5000)"), env)}).not.toThrow("Maximum call stack size exceeded");
   });
