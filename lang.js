@@ -457,7 +457,7 @@ function Reader(){
 
 function applyPrimop(proc, args, env){
   //throw new Error("applyPrimop is not using correct pairUp api")
-  var unassigned = preparePairupParameters(getVars(proc), args);
+  var unassigned = preparePairupParameters(getVars(proc), args, env);
   var frame = pairUp(unassigned.keys, unassigned.values, unassigned.pairs, unassigned.defaults, unassigned.tail);
 
   var env = addFrameToEnv(frame, env);
@@ -690,7 +690,7 @@ function eval(exp, env){
         
       } else if ( isClosure(proc) ){
         env = getEnv(proc);
-        var unassigned = preparePairupParameters(getVars(proc), args);
+        var unassigned = preparePairupParameters(getVars(proc), args, env);
         var frame = pairUp(unassigned.keys, unassigned.values, unassigned.pairs, unassigned.defaults, unassigned.tail);
         //var frame = pairUp(getVars(proc), args, nil);
         env = addFrameToEnv(frame, env);
@@ -1013,7 +1013,7 @@ function arrayToConsList(a, lst){
 } 
  */
 
-function preparePairupParameters(variables, values){
+function preparePairupParameters(variables, values, env){
   
   variables = new ParameterList(variables);
   values = new ParameterList(values);
@@ -1021,13 +1021,19 @@ function preparePairupParameters(variables, values){
   var keys = variables.getParameters().filter(function(k){
     return assignedKeys.indexOf(k) < 0;
   });
+  var defaults = {};
+  var variablePairs =  variables.getPairs();
+  for(var key in variablePairs){
+    defaults[key] = eval(variablePairs[key], env);
+  }
   var result = {
     keys: keys,
     tail: variables.tail,
     values: values.getUnnamedValues(),
     pairs: values.getPairs(),
-    defaults: variables.getPairs()
-  }  
+    defaults: defaults
+  }
+  
   return result;
 }
 
@@ -1079,6 +1085,15 @@ function pairUp(vars, vals, result, defaults, tail){
   if(vars.length == vals.length){
     return createFrameheader(completeFrame, result, nil);
   }else {
+     for(key in defaults){
+      if(result[key] == undefined){
+        var index = vars.indexOf(key);
+        if(index > -1 ){
+          vars.splice(index, 1);
+        }
+        result[key] = defaults[key]; 
+      }
+    }
     return createFrameheader(partialFrame, result, arrayToConsList(vars.map(function(c){return intern(c);})));
   }
   

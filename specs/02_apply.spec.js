@@ -108,6 +108,23 @@ describe("slang apply", function(){
     expect(ast.toString()).toEqual("(lambda (mies) (list noot mies))");
   });
   
+  it("a function is partially applied, a default value must be used if it is provided", function(){
+    
+      testStr = "(define (list . x ) x)";
+      ast = eval(read(testStr), env);
+    
+      testStr = "(define (aap noot mies :flierp 'mi) (list noot mies flierp))";
+      ast = eval(read(testStr), env);
+    
+      testStr = "(aap 'n)";
+      ast = eval(read(testStr), env);
+      expect(ast.toString()).toEqual("(lambda (mies) (list noot mies flierp))");
+      testStr = "(aap 'n 'm)";
+      ast = eval(read(testStr), env);
+      expect(ast.toString()).toEqual("(n m mi)");
+      
+  });
+  
   it("partially apply a function with rest and closure", function(){
     var reduce = "(define reduce (lambda (fn lst . acc) (cond ((nil? lst) (car acc)) (t (reduce fn (cdr lst) (fn (car lst) (car acc)))))))";
     ast = eval(read(reduce), env);
@@ -152,7 +169,7 @@ describe("slang apply", function(){
     });
 
     it("store key value pairs from parameters as defaults", function(){
-      var variables = evalRead("'(a :b c)");
+      var variables = evalRead("'(a :b 'c)");
       var values = evalRead("'()");
       var pairUpParameters = preparePairupParameters(variables, values);
       expect(pairUpParameters.keys).toEqual(['a', 'b']);
@@ -162,7 +179,7 @@ describe("slang apply", function(){
     
     it("to apply in correct order", function(){
       var pairs = {};
-      var variables = evalRead("'(a :b bb c e f)");
+      var variables = evalRead("'(a :b 'bb c e f)");
       var values = evalRead("'(:c cc aaa :e eee ffff)");
       var pairUpParameters = preparePairupParameters(variables, values, pairs);
       expect(pairUpParameters.keys).toEqual(['a','b','f']);
