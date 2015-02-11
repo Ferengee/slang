@@ -364,15 +364,10 @@
       part = part.toLowerCase();
       var pair = frame;
       var result = [];
-      while(!isNil(pair)){
-        var item = car(pair);
-        var name = car(item).name;
-        if(name === undefined){
-          console.log(item);
-        }else if(!isNil(item) &&  name.indexOf(part) > -1){
+      for(name in frame){
+        if(name.indexOf(part) > -1){
           result.push(name);
         }
-        pair = cdr(pair)
       }
       return result;
     }
