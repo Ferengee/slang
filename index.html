@@ -402,6 +402,7 @@
     }
 
     function suggest(e){
+      var cmdline = document.getElementById("cmdline");
 
       if (typeof e == 'undefined' && window.event) { 
         e = window.event; 
@@ -410,10 +411,10 @@
       {
         e.preventDefault();
         enter();
+        cmdline.value ="";
         return false;
       }
       
-      var cmdline = document.getElementById("cmdline");
       var value = cmdline.value;
       var caret = cmdline.selectionStart;
       var part = getPart(cmdline);
