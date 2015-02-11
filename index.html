@@ -66,8 +66,8 @@
    
 
     <li><a class="btn" onclick="fromEnv()">edit</a></li>
-    <li><a class="btn" onclick="save()">save</a></li>
-    <li><a class="btn" onclick="load()">load</a></li>
+    <li><a class="btn disabled" onclick="save()">save</a></li>
+    <li><a class="btn disabled" onclick="load()">load</a></li>
   </ol>
 </div>
 
@@ -155,7 +155,6 @@
       (testif 
         (not-fn nil?) 
         (car step) 1) nil)))
-(define (globals) (map car (cdr (car (printenv)))))
 (define reverse (reduce cons))
 ; / --> 
 
@@ -473,6 +472,8 @@
       eval(read(["(define",symbol.name,code,")"].join(" ")),env);
       return symbol;
     }
+    
+    registerKeyword("globals",function(){return arrayToConsList(Object.keys(car(env)));},[]);
     registerKeyword("storage->list",listStorage);
     registerKeyword("storage->save",saveStorage, ['variable']);  
     registerKeyword("storage->load",loadStorage, ['variable']);  
