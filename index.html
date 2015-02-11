@@ -58,7 +58,7 @@
 </div>
 <div class="control">
  
-  <textarea rows="16" type="text" id="cmdline" inputmode="latin lowerCase" onKeyUp="suggest(event)" ></textarea>
+  <textarea rows="16" type="text" id="cmdline" inputmode="latin lowerCase" onKeyDown="handleKeyDown(event)" onKeyUp="handleKeyUp(event)" ></textarea>
   <ol class="edit-btns"> 
     <li><a class="btn" onclick="balance()">balance</a></li>
     <li><a class="btn" onclick="enter()">run ⏎</a></li>
@@ -388,6 +388,15 @@
       cmdline.setSelectionRange(caret, caret);
       cmdline.scrollIntoView();    
     }
+
+    function handleKeyDown(e){
+      if(e.keyCode == 9){
+        e.preventDefault();
+        enterSuggestion();
+        cmdline.focus();
+        return false;
+      }
+    }
     
     function enterSuggestion(){
       var cmdline = document.getElementById("cmdline");
@@ -401,7 +410,7 @@
       return cmdline.value.substr(0, caret).split(/[ \)\(]/).slice(-1)[0];
     }
 
-    function suggest(e){
+    function handleKeyUp(e){
       var cmdline = document.getElementById("cmdline");
 
       if (typeof e == 'undefined' && window.event) { 
@@ -410,6 +419,7 @@
       if (e.keyCode == 13 && e.shiftKey)
       {
         e.preventDefault();
+        balance();
         enter();
         cmdline.value ="";
         return false;
