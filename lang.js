@@ -492,20 +492,21 @@ function valsToArgs(vals){
       (else (error 'invalid-proc)))))
 */
 function apply(proc, args){
-  //console.log("apply", proc.toString(), args);
-
   if(isPrimitive(proc)){
-    return applyPrimop(proc, args);
+    return applyPrimop(proc, args, env);
+    
   } else if ( isClosure(proc) ){
-    var code = getCode(proc);
-    var result = nil;
-    var env = bind(getVars(proc), args, getEnv(proc));
-
-    while(!isNil(code)){
-      result = eval( car(code), env);
-      code = cdr(code);
-    }
-    return result;
+    env = getEnv(proc);
+    
+    var unassigned = preparePairupParameters(getVars(proc), args, env);
+    var frame = pairUp(unassigned.keys, unassigned.values, unassigned.pairs, unassigned.defaults, unassigned.tail);
+    
+    env = addFrameToEnv(frame, env);
+    
+    if(isPartialFrame(frame)){
+      return buildPartialAppliedProc(frame, proc, env);
+    } 
+    return eval(evaluateCodeBlock(getCode(proc), env), env);
   } else {
     throw new Error("invalid proc: " + JSON.stringify(proc) + ":" + args);
   }
@@ -582,10 +583,12 @@ function intern(token){
 */
   function logEnv(env, depth){
     var count=0;
-    depth = depth || -1;
+    if(depth === undefined){
+      depth = -1;
+    }
     while(!isNil(env)){
       console.log("(",count++, ") env frame: ", car(env));
-      if(depth > 0 && count > depth){
+      if(depth > -1 && count > depth){
         break;
       }
       env = cdr(env); 
@@ -951,7 +954,7 @@ function evalOr(predicates, env){
 */
   
   function bind(vars, vals, env){
-    throw new Error("bind is not using correct pairUp api")
+    //throw new Error("bind is not using correct pairUp api")
     return cons(pairUp(vars, vals, {}), env);
   }
   

@@ -82,6 +82,22 @@ describe("slang evaluator", function(){
   
 });
 
+describe("the apply function", function(){
+  var env;
+  var ast;
+  
+  beforeEach(function(){
+    env = Slang.environnement();
+  });
+  
+  it("should be able to apply a define function with arguments", function(){
+    testEvaluation(env, "(define (testfn a b) (- a b))", "testfn");
+
+    testEvaluation(env, "(apply testfn '(2 3))", "-1");
+    testEvaluation(env, "(apply testfn '(5 3))", "2");
+  });
+});
+
 describe("utility gcd", function(){
   function gcd(a, b){
     if (b == 0){
