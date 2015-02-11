@@ -1,6 +1,8 @@
 var Slang = require("../lang");
 var eval = Slang.functions.eval;
 var read = Slang.reader.read;
+var logEnv = Slang.api.logEnv;
+var origEnv = Slang.api.origEnv();
 var makeNumber = Slang.functions.makeNumber;
 
 function testEvaluation(env, code, result){
@@ -96,6 +98,7 @@ describe("the apply function", function(){
     testEvaluation(env, "(apply testfn '(2 3))", "-1");
     testEvaluation(env, "(apply testfn '(5 3))", "2");
   });
+  
 });
 
 describe("utility gcd", function(){

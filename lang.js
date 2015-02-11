@@ -232,6 +232,12 @@ function LPrimop(fn, representation, argNames){
   }
 }
 
+LPrimop.prototype.apply = function(args, env){
+  args.push(env);
+  return this.fn.apply(this, args);
+}
+
+
 LPrimop.prototype.constructArgs = function(args){
   this.args = nil;
 
@@ -469,7 +475,7 @@ function applyPrimop(proc, args, env){
   }
     
   args = valsToArgs(args);
-  return proc.fn.apply(proc, args);
+  return proc.apply(args, env);
 }
 
 function valsToArgs(vals){
@@ -491,7 +497,7 @@ function valsToArgs(vals){
           (bind (caadr proc) args (caddr proc))))
       (else (error 'invalid-proc)))))
 */
-function apply(proc, args){
+function apply(proc, args, env){
   if(isPrimitive(proc)){
     return applyPrimop(proc, args, env);
     
@@ -1221,7 +1227,7 @@ function createPrimaryNumberOp (binaryFn){
 }
 
 function registerPrimaryNumberOp(token, binaryFn){
-  var primop = new LPrimop(createPrimaryNumberOp(binaryFn), token, ['x', 'y']);
+  var primop = new LPrimop(binaryFn, token, ['x', 'y']);
   extendTopEnv(intern(token), primop);
 }
 
@@ -1404,5 +1410,7 @@ module.exports.api = {
   pairUp: pairUp,
   extractKeyValues: extractKeyValues,
   preparePairupParameters: preparePairupParameters,
-  ParameterList: ParameterList
+  ParameterList: ParameterList,
+  logEnv: logEnv,
+  origEnv: function(){return env}
 }
