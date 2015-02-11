@@ -372,12 +372,6 @@
     }
 
     function insertText(token, caret, replaceCount){
-          console.log("token: ",token);
-
-          console.log("position: ", caret);
-          console.log("replaceCount: ",replaceCount);
-
-
       replaceCount = replaceCount || 0;
       var cmdline = document.getElementById("cmdline");
       var value = cmdline.value;
@@ -443,18 +437,15 @@
       suggest.onclick = function(){
 
         if(clickCount == 1){
-          console.log("replacing:", part," with ", this.value);
           insertText(this.value, caret, part.length);
         }
         clickCount++;
-
       }
-
-
     }
+
     function appendResult(result){
       var item = document.createElement('li');
-      item.innerHTML = result;
+      item.innerHTML = "<p>" + indent(result.toString(), "<br />", "&nbsp") + "</p>";
       document.getElementById("output").appendChild(item);
     }
   
@@ -491,8 +482,6 @@
 
     registerKeyword("storage->clear",function(){localStorage.clear(); return nil;});
 
-
-   
     clear = clearOutput = function (){
       document.getElementById("output").innerHTML = "";
       return "";
@@ -507,30 +496,43 @@
       appendResult(result);
     }
 
+    function indent(code, newline, space){
+      if(newline === undefined) 
+        newline = '\n';
+
+      if (space === undefined) 
+        space = ' ';
+
+      var depth = 0;
+
+      var result = "";
+      for(var i =0 ; i < code.length; i++){
+        if(code[i] == "(" ){
+          if( code[i - 1] && code[i - 1] != "("){
+            result = result + newline;
+            
+            for(var j = 0; j < depth; j ++){
+              result = result + space + space;
+            }
+          }
+          depth = depth + 1;
+        } else if (code[i] == ")"){
+          depth = depth - 1;
+        }
+        result = result + code[i];
+      }
+      return result;
+    }
+
     function fromEnv(){
       var cmdline = document.getElementById("cmdline");
       var result = "";
       var variable = cmdline.value.toString();
-      var depth = 0;
        
       try{
         var code = ["(define ", variable, eval(read(variable), env).toString(), ")"].join("") ;
         
-        for(var i =0 ; i < code.length; i++){
-          if(code[i] == "(" ){
-            if( code[i - 1] && code[i - 1] != "("){
-              result = result + '\n';
-              
-              for(var j = 0; j < depth; j ++){
-                result = result + "  ";
-              }
-            }
-            depth = depth + 1;
-          } else if (code[i] == ")"){
-            depth = depth - 1;
-          }
-          result = result + code[i];
-        }
+        result = indent(code);
         cmdline.value = result; 
       } catch(e){
         appendResult(e);
