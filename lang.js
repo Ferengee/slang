@@ -1286,6 +1286,7 @@ registerKeyword("nil?", function(v){
 }, ['v']);
 
 var cxrfunctions = function (){
+var cxrfunctions = (function (){
   function genOptions(existing){
     result = {};
     var tokens = ['a','d']
@@ -1326,6 +1327,7 @@ var cxrfunctions = function (){
   
   return createFunctions();
 }();
+})();
 
 for(name in cxrfunctions){
   registerKeyword("c"+name, cxrfunctions[name], ['x']);
@@ -1343,6 +1345,7 @@ registerKeyword("list?", isList, ['lst']);
 
 registerKeyword("apply", apply, ['proc', 'args']);
 registerKeyword("eval", function(exp){ eval(exp, env);}, ['exp']);
+registerKeyword("eval", function(exp, env){ eval(exp, env);}, ['exp']);
 
 // 
 var readFromInput = function(){return "'not-implemented-yet"};
