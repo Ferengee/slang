@@ -1285,7 +1285,6 @@ registerKeyword("nil?", function(v){
   
 }, ['v']);
 
-var cxrfunctions = function (){
 var cxrfunctions = (function (){
   function genOptions(existing){
     result = {};
@@ -1326,7 +1325,6 @@ var cxrfunctions = (function (){
   }
   
   return createFunctions();
-}();
 })();
 
 for(name in cxrfunctions){
