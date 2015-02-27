@@ -1,7 +1,34 @@
 var Slang = require("../lang");
+var Symbols = require("../symbols.js");
 
 describe("slang Parser", function(){
-  
+  describe("symbols", function(){
+    var parser;
+
+    beforeEach(function(){
+      parser = new Slang.Parser();
+    });
+    
+    it("should be able to create a keyword symbol", function(){
+      var sym = parser.parseObject("aap");
+      var keySym = parser.parseObject(":aap");
+      expect(Symbols.isSymbol(sym)).toBe(true);
+      console.log("c: ", sym);
+      console.log("i: ", (sym instanceof Symbols.LSymbol));
+      var d =  new Symbols.LSymbol("aap");
+      console.log("d: ",d);
+      console.log("di: ", (d instanceof Symbols.LSymbol));
+      
+      
+      
+      expect(Symbols.isSymbol(keySym)).toBe(true);
+      
+      expect(Symbols.isKeywordSymbol(sym)).toBe(false);
+      expect(Symbols.isKeywordSymbol(keySym)).toBe(true);
+
+
+    });
+  });
   describe(".parseNumber", function(){
     var parser;
 
